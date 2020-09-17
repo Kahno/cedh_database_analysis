@@ -58,7 +58,7 @@ def deck_similarity(dataset, deck_1, deck_2):
     return jaccard_similarity(decklist_1, decklist_2)
 
 
-def summary(dataset):
+def summary(dataset, output=False):
     all_cards = {}
     num_decks = 0
 
@@ -72,16 +72,19 @@ def summary(dataset):
                 num_decks += 1
 
     for card in sorted(filter(not_basic_land, all_cards.keys()), key=lambda x: all_cards[x]):
-        print(f"{all_cards[card] / num_decks:.4f} ({all_cards[card]}/{num_decks}) {card}")
+        if output:
+            print(f"{all_cards[card] / num_decks:.4f} ({all_cards[card]}/{num_decks}) {card}")
 
-    print(f"\nTotal number of unique cards on database is {len(all_cards.keys())}\n")
+    if output:
+        print(f"\nTotal number of unique cards on database is {len(all_cards.keys())}\n")
 
     for i in range(1, 11):
         cur_representation = 0
         for card in all_cards:
             if all_cards[card] == i:
                 cur_representation += 1
-        print(f"{cur_representation} cards are featured {i} times.")
+        if output:
+            print(f"{cur_representation} cards are featured {i} times.")
 
     return all_cards, num_decks
 
