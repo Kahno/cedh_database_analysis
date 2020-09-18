@@ -208,7 +208,8 @@ DECKLIST_PLATFORM_PARSERS = {
     "moxfield": parse_moxfield,
     "tappedout": parse_tappedout,
     "archidekt": parse_archidekt,
-    "scryfall": parse_scryfall
+    "scryfall": parse_scryfall,
+    "deckbox": parse_deckbox
 }
 
 
