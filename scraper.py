@@ -190,6 +190,18 @@ def parse_scryfall(url):
     return result
 
 
+def parse_deckbox(url):
+    response = requests.get(url, headers=HEADERS)
+    deck_json = re.search(r"Tcg\.MtgDeck\({.+?}, ({.+})\);", response.text).group(1)
+    data = json.loads(deck_json)
+    result = []
+
+    for x in data:
+        result.append(data[x]["name"])
+
+    return result
+
+
 URL = "https://cedh-decklist-database.com/"
 
 DECKLIST_PLATFORM_PARSERS = {
