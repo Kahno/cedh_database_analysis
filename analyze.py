@@ -1,5 +1,8 @@
 import json
 
+import pandas as pd
+import numpy as np
+
 
 MASTER_JSON_FILE = "cedh_decklists.json"
 SCRYFALL_CARD_DICTIONARY = "scryfall_card_dictionary.json"
@@ -252,6 +255,120 @@ def recommend(decklist, deck_color_identity):
     return output
 
 
+def create_dataframe(dataset, all_cards):
+    all_cards_x = list(filter(not_basic_land, all_cards.keys()))
+    dataset_flat = {}
+
+    for color in dataset:
+        for deck_type in dataset[color]:
+            for deck in dataset[color][deck_type]:
+                dataset_flat[deck] = dataset[color][deck_type][deck]
+
+    deck_names = list(sorted(dataset_flat.keys()))
+    all_cards_dict = {card: i for i, card in enumerate(all_cards_x)}
+    mat = []
+
+    for i, deck in enumerate(deck_names):
+        cur_line = [0] * len(all_cards_x)
+        for card in dataset_flat[deck]:
+            if not_basic_land(card):
+                cur_line[all_cards_dict[card]] = 1
+        mat.append(cur_line)
+
+    return pd.DataFrame(
+        data=np.array(mat),
+        index=deck_names,
+        columns=all_cards_x
+    )
+
+
+def similarity(df, decklist_vec, b, output=False):
+    v = df.loc[b].values
+
+    result = sum(decklist_vec & v) / sum(decklist_vec | v)
+
+    if output:
+        print(f"Comparing deck to {b}")
+        print(f"{sum(decklist_vec & v)} card(s) in common")
+        print(f"Jaccard similarity: {result}")
+
+    return result
+
+
+def deck2vec(df, decklist):
+
+    return pd.Series([1 if card in decklist else 0 for card in df.columns])
+
+
+def cards_in_common_ratio(decklist_1, decklist_2):
+
+    return len([a for a in decklist_1 if a in decklist_2]) / 100
+
+
+def deck_similarities(decklist, deck_color_identity):
+    dataset = load_database()
+    scryfall_card_dict = load_scryfall()
+    flat_dataset = flatten(dataset)
+    all_cards, num_decks = summary(dataset)
+    ddb_color_rep = deck_rep_by_color(dataset)
+    df = create_dataframe(dataset, all_cards)
+    decklist_vec = deck2vec(df, decklist)
+
+    for deck in sorted(flat_dataset, key=lambda x: similarity(df, decklist_vec, x), reverse=True)[:50]:
+        print(f"Value: {similarity(df, decklist_vec, deck):.3f}, "
+              f"{cards_in_common(decklist, flat_dataset[deck])}, {deck}")
+
+
+def experimental_recommend(decklist, deck_color_identity):
+    dataset = load_database()
+    scryfall_card_dict = load_scryfall()
+    flat_dataset = flatten(dataset)
+    all_cards, num_decks = summary(dataset)
+    ddb_color_rep = deck_rep_by_color(dataset)
+    df = create_dataframe(dataset, all_cards)
+    decklist_vec = deck2vec(df, decklist)
+
+    master_dict = {}
+
+    for deck in flat_dataset:
+        cur_filtered = filter(lambda x: x not in decklist, flat_dataset[deck])
+
+        cur_score = similarity(df, decklist_vec, deck)
+        #cur_score = cards_in_common_ratio(decklist, flat_dataset[deck])
+
+        for card in cur_filtered:
+            if card not in master_dict:
+                master_dict[card] = []
+
+            master_dict[card].append(cur_score)
+
+    measure = lambda x: np.power(np.prod(master_dict[x]), 1/len(master_dict[x]))
+
+    mi_val = lambda x: max_inclusion_value(x, ddb_color_rep, scryfall_card_dict)
+    mi_ratio = lambda x: max_inclusion_ratio(x, all_cards, ddb_color_rep, scryfall_card_dict)
+    rep_ratio = lambda x: all_cards[x] / num_decks
+
+    composite = lambda x: (0.5 * mi_ratio(x) + 0.5 * rep_ratio(x)) #* measure(x)
+
+    cif = ci_filter(deck_color_identity, scryfall_card_dict)
+    lf = lambda x: "Land" not in scryfall_card_dict[x]["type_line"]
+    cf = lambda x: cif(x) and not_basic_land(x) and lf(x)
+
+    shortlist = sorted(filter(cf, master_dict.keys()), key=composite, reverse=True)[:20]
+    output = ""
+
+    for i, card in enumerate(sorted(shortlist, key=measure, reverse=True)):
+        numbering = f"{i+1}.".ljust(4, " ")
+        card_name = f"{card}".ljust(40, " ")
+
+        output += (
+            f"{numbering}{card_name}({all_cards[card]}/{mi_val(card)}) "
+            f"(DS: {measure(card):.3f})\n"
+        )
+
+    return output
+
+
 if __name__ == "__main__":
 
     # Json data pulled from deckbox used for testing
@@ -261,4 +378,7 @@ if __name__ == "__main__":
         for i, x in enumerate(data):
             test_deck.append(data[x]["name"])
 
-    print(recommend(test_deck, deck_identity(test_deck, load_scryfall())))
+    #print(recommend(test_deck, deck_identity(test_deck, load_scryfall())))
+
+    #deck_similarities(test_deck, ["W", "U", "B", "G"])
+    print(experimental_recommend(test_deck, ["W", "U", "B", "G"]))

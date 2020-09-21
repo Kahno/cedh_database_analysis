@@ -5,7 +5,7 @@ from flask import json
 from flask import request
 from flask import Response
 
-from analyze import recommend
+from analyze import experimental_recommend
 from scraper import parse_decklist_platform
 
 
@@ -48,7 +48,7 @@ def recommend_cards():
     if not cleaned_decklist:
         fetch_result = "No decklist provided! Fetch via decklist URL or paste in above text box."
     else:
-        fetch_result = recommend(cleaned_decklist, identity)
+        fetch_result = experimental_recommend(cleaned_decklist, identity)
 
     time.sleep(1)
 
