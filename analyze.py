@@ -211,7 +211,7 @@ def max_inclusion_ratio(card, all_ddb_cards, ddb_color_rep, scryfall_card_dict):
     return all_ddb_cards[card] / max_inclusion
 
 
-def recommend_cards(decklist):
+def recommend(decklist, deck_color_identity):
     dataset = load_database()
     scryfall_card_dict = load_scryfall()
 
@@ -225,7 +225,7 @@ def recommend_cards(decklist):
     combo = lambda x: 0.5 * mi_ratio(x) + 0.5 * rep_ratio(x)
 
     # Color identity filter
-    cif = ci_filter(deck_identity(decklist, scryfall_card_dict), scryfall_card_dict)
+    cif = ci_filter(deck_color_identity, scryfall_card_dict)
 
     # Card filter
     dif = decklist_filter(decklist)
@@ -233,17 +233,23 @@ def recommend_cards(decklist):
     # Composite filter
     cf = lambda x: cif(x) and dif(x) and not_basic_land(x)
 
-    print(f"Total number of decks on ddb: {num_decks}")
-    print("MI - ratio of decks with card versus all decks in legal color identity")
-    print("RP - ratio of decks with card versus all decks on the ddb")
-    print()
+    output = ""
+
+    output += f"Total number of decks on ddb: {num_decks}\n"
+    output += "MI - ratio of decks with card versus all decks in legal color identity\n"
+    output += "RP - ratio of decks with card versus all decks on the ddb\n\n"
 
     for i, card in enumerate(sorted(filter(cf, all_cards.keys()), key=combo, reverse=True)[:50]):
-        print(
-            f"{i+1}. {card} ({all_cards[card]}/{mi_val(card)}) "
+        numbering = f"{i+1}.".ljust(4, " ")
+        card_name = f"{card}".ljust(50, " ")
+
+        output += (
+            f"{numbering}{card_name}({all_cards[card]}/{mi_val(card)}) "
             f"(MI: {mi_ratio(card):.3f}) "
-            f"(RP: {rep_ratio(card):.3f})"
+            f"(RP: {rep_ratio(card):.3f})\n"
         )
+
+    return output
 
 
 if __name__ == "__main__":
@@ -255,4 +261,4 @@ if __name__ == "__main__":
         for i, x in enumerate(data):
             test_deck.append(data[x]["name"])
 
-    recommend_cards(test_deck)
+    print(recommend(test_deck, deck_identity(test_deck, load_scryfall())))

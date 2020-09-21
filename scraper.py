@@ -29,7 +29,7 @@ def parse(url):
     master_json = {}
 
     response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, features="html5lib")
+    soup = BeautifulSoup(response.text, features="html.parser")
 
     for i, p in enumerate(soup.select("#decks > li:not(.hidden)")):
 
@@ -93,22 +93,26 @@ def parse_deck_type(element):
     return element.get('data-title')
 
 
-def parse_decklist_platform(url):
+def parse_decklist_platform(url, wait_time=0):
     """
     Determines decklist platform and chooses decklist parsing accordingly.
     """
 
+    print(f"Attempting to parse: {url}")
+
     for platform_name in DECKLIST_PLATFORM_PARSERS:
         if platform_name in url:
-            return DECKLIST_PLATFORM_PARSERS[platform_name](url)
+            decklist = DECKLIST_PLATFORM_PARSERS[platform_name](url)
+            time.sleep(wait_time)
+            return decklist
 
+    time.sleep(wait_time)
     print("No matching platform found! Returning empty decklist")
-
     return []
 
 
 def parse_moxfield(url):
-    deck_id = re.search(r"moxfield\.com\/decks\/([\w\-]+)\/", url).group(1)
+    deck_id = re.search(r"moxfield\.com\/decks\/([\w\-]+)\/?", url).group(1)
     api_string = f"https://api.moxfield.com/v1/decks/all/{deck_id}"
     response = requests.get(api_string, headers=HEADERS)
     result = response.json()
@@ -126,7 +130,7 @@ def parse_moxfield(url):
 
 def parse_tappedout(url):
     response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, features="html5lib")
+    soup = BeautifulSoup(response.text, features="html.parser")
     result = []
 
     for card in soup.select(".boardlist .member"):
@@ -151,7 +155,7 @@ def parse_tappedout(url):
                     f"https://tappedout.net{commander_link.get('href')}",
                     headers=HEADERS
                 )
-                commander_soup = BeautifulSoup(response.text, features="html5lib")
+                commander_soup = BeautifulSoup(response.text, features="html.parser")
                 result.append(commander_soup.select(".well-jumbotron h1")[0].text.strip())
                 time.sleep(1)
 
@@ -179,7 +183,7 @@ def parse_archidekt(url):
 
 def parse_scryfall(url):
     response = requests.get(url, headers=HEADERS)
-    soup = BeautifulSoup(response.text, features="html5lib")
+    soup = BeautifulSoup(response.text, features="html.parser")
     result = []
 
     for i, card in enumerate(soup.select(".deck-list-section-entries .deck-list-entry")):
