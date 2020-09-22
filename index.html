@@ -131,6 +131,7 @@
                 }
                 let deck_info = {
                     "decklist": $("#decklist").val(),
+                    "excludelist": $("#excludelist").val(),
                     "identity": identity
                 };
                 let xhr = new XMLHttpRequest();
@@ -289,6 +290,14 @@
                     <button type="submit" id="rec" class="btn basic-btn w-100">Recommend cards</button>
                 </div>
 
+            </div>
+        </div>
+
+        <div class="d-flex mb-3">
+            <div class="w-100">
+                <textarea rows=3 style="font-family: monospace; background-color: #c7ecee; padding: .375rem .75rem;" class="w-100" id="excludelist" name="excludelist" placeholder="Excluded cards:
+
+1 Steamflogger Boss"></textarea>
             </div>
         </div>
 

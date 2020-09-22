@@ -1,4 +1,5 @@
 import time
+import re
 
 from flask import Flask
 from flask import json
@@ -37,18 +38,26 @@ def fetch_decklist():
 def recommend_cards():
     data_json = json.loads(request.data)
     decklist = data_json["decklist"]
+    excludelist = data_json["excludelist"]
     identity = data_json["identity"]
     cleaned_decklist = []
+    cleaned_excludelist = []
 
     for card in decklist.split("\n"):
         if card:
             cleaned_card = " ".join(card.split()[1:])
             cleaned_decklist.append(cleaned_card)
 
+    for card in excludelist.split("\n"):
+        if card:
+            cleaned_card = card.split("(")[0]
+            cleaned_card = re.search(r"[0-9]*\.?\s*(.+)", cleaned_card).group(1)
+            cleaned_excludelist.append(cleaned_card.strip())
+
     if not cleaned_decklist:
         fetch_result = "No decklist provided! Fetch via decklist URL or paste in above text box."
     else:
-        fetch_result = experimental_recommend(cleaned_decklist, identity)
+        fetch_result = experimental_recommend(cleaned_decklist, identity, cleaned_excludelist)
 
     time.sleep(1)
 

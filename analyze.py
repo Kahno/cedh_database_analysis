@@ -319,7 +319,7 @@ def deck_similarities(decklist, deck_color_identity):
               f"{cards_in_common(decklist, flat_dataset[deck])}, {deck}")
 
 
-def experimental_recommend(decklist, deck_color_identity):
+def experimental_recommend(decklist, deck_color_identity, excludelist):
     dataset = load_database()
     scryfall_card_dict = load_scryfall()
     flat_dataset = flatten(dataset)
@@ -352,7 +352,8 @@ def experimental_recommend(decklist, deck_color_identity):
 
     cif = ci_filter(deck_color_identity, scryfall_card_dict)
     lf = lambda x: "Land" not in scryfall_card_dict[x]["type_line"]
-    cf = lambda x: cif(x) and not_basic_land(x) and lf(x)
+    ef = lambda x: x not in excludelist
+    cf = lambda x: cif(x) and lf(x) and ef(x)
 
     shortlist = sorted(filter(cf, master_dict.keys()), key=composite, reverse=True)[:20]
     output = ""
