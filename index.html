@@ -4,7 +4,7 @@
     <title>cEDH Card Recommender</title>
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"
         integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
         crossorigin="anonymous"></script>
@@ -167,7 +167,7 @@
     </script>
 </head>
 <body style="background-color: #dff9fb">
-    <div class="container w-50 mx-auto" >
+    <div class="container col-12 col-md-10 col-lg-8 col-xl-7 mx-auto">
         <div class="d-flex justify-content-center">
             <div>
                 <h1>Competitive EDH Card Recommender</h1>
@@ -176,11 +176,12 @@
 
         <div style="height: 2rem"></div>
 
-        <div class="d-flex mb-3">
+        <div class="row mb-3">
             <div style="font-family: monospace">
-            Usage:
 
-                <ul style="list-style-type:none;">
+
+
+                <ul style="list-style-type:none;" class="pl-3">
                     <li>1a) Fetch desired decklist via URL by clicking "Scrape decklist"</li>
                     <li>1b) Paste desired decklist into the designated text box</li>
                     <li>2) Select color identity by clicking desired color buttons</li>
@@ -189,19 +190,19 @@
             </div>
         </div>
 
-        <div class="d-flex justify-content-between w-100 mb-3">
-            <div class="w-75 mr-3">
+        <div class="row mb-3">
+            <div class="col-xl-9 col-12">
                 <input style="font-family: monospace; background-color: #c7ecee;" type="text" class="form-control" id="decklist_url" placeholder="Enter decklist URL (example: https://deckbox.org/sets/1234567)">
             </div>
 
-            <div class="w-25">
+            <div class="col-xl-3 col-12 mt-2 mt-xl-0">
                 <button class="btn basic-btn w-100" type="button" id="fetch">Scrape decklist
                 </button>
             </div>
         </div>
 
-        <div class="d-flex w-100 mb-3">
-            <div class="w-75 mr-3">
+        <div class="row mb-3">
+            <div class="col-xl-9 col-12">
                 <textarea style="font-family: monospace; background-color: #c7ecee; padding: .375rem .75rem;" class="h-100 w-100" id="decklist" name="decklist" placeholder="Decklist:
 
 1 Chrome Mox
@@ -211,8 +212,8 @@
 ..."></textarea>
             </div>
 
-            <div class="w-25 h-100 flex-column">
-                <div>
+            <div class="col-12 col-xl-3 h-100 flex-column mt-3 mt-xl-0">
+
                     <button name="W" type="submit" class="color-btn white-btn btn w-100">
                         <span>
 
@@ -225,10 +226,10 @@
 
                         </span>
                         <span>| White</span>
-                        <span class="float-right"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
+                        <span class="float-right mr-1"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
                     </button>
-                </div>
-                <div>
+
+
                     <button name="U" type="submit" class="color-btn blue-btn btn w-100">
 
                         <span>
@@ -240,10 +241,9 @@
                             </svg>
                         </span>
                         <span>| Blue</span>
-                        <span class="float-right"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
+                        <span class="float-right mr-1"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
                     </button>
-                </div>
-                <div>
+
                     <button name="B" type="submit" class="color-btn black-btn btn w-100">
 
                         <span>
@@ -255,10 +255,9 @@
                             </svg>
                         </span>
                         <span>| Black</span>
-                        <span class="float-right"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
+                        <span class="float-right mr-1"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
                     </button>
-                </div>
-                <div>
+
                     <button name="R" type="submit" class="color-btn red-btn btn w-100">
 
                         <span>
@@ -268,10 +267,10 @@
                             </svg>
                         </span>
                         <span>| Red</span>
-                        <span class="float-right"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
+                        <span class="float-right mr-1"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
                     </button>
-                </div>
-                <div>
+
+
                     <button name="G" type="submit" class="color-btn green-btn btn w-100 mb-3">
 
                         <span>
@@ -283,9 +282,9 @@
                             </svg>
                         </span>
                         <span>| Green</span>
-                        <span class="float-right"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
+                        <span class="float-right mr-1"><svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52"><circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/><path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/></svg></span>
                     </button>
-                </div>
+
                 <div>
                     <button type="submit" id="rec" class="btn basic-btn w-100">Recommend cards</button>
                 </div>
@@ -303,6 +302,9 @@
 
         <div class="d-flex mb-3">
             <div class="w-100">
+
+        <div class="row mb-3">
+            <div class="col-12">
                 <textarea class="w-100" rows="22" id="result" name="result" style="background-color: #c7ecee; font-family: monospace;"></textarea>
             </div>
         </div>
