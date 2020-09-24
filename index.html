@@ -84,7 +84,35 @@
 
     </style>
 
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
     <script>
+        google.charts.load('current', {packages: ['corechart', 'bar']});
+
+    </script>
+
+    <script>
+        function displayGenerality(generality) {
+            var data = new google.visualization.DataTable();
+                data.addColumn('string', 'Deck');
+                data.addColumn('number', 'Generality');
+
+                var data = [['Deck', 'Generality', { role: 'style'}],];
+
+                generality.forEach(deck=>{data.push(deck)});
+
+                var options = {
+                    title: 'Generality rating of cEDH DDB decks',
+                    legend: {position: 'none'},
+                    hAxis: { textPosition: 'none' }
+                };
+
+                var chart = new google.visualization.ColumnChart(
+                    document.getElementById('chart_div'));
+
+                chart.draw(google.visualization.arrayToDataTable(data), options);
+        }
+
         $( document ).ready(function() {
             function fetchDecklist() {
 
@@ -105,10 +133,19 @@
                 xhr.onreadystatechange = function () {
                     if (this.readyState != 4) return;
                     if (this.status == 200) {
-                        document.getElementById("decklist").value = this.response;
+
+                        console.log(this.responseText);
+
+                        let parsed = JSON.parse(this.responseText);
+                        let decklist = parsed["decklist"];
+                        let generality = parsed["generality"];
+
+                        document.getElementById("decklist").value = decklist;
 
                         btn.innerHTML = "Scrape decklist";
                         btn.disabled = false;
+
+                        //displayGenerality(generality);
                     }
                 };
                 xhr.open("POST", "/fetch", true);
@@ -175,6 +212,8 @@
         </div>
 
         <div style="height: 2rem"></div>
+
+        <div id="chart_div"></div>
 
         <div class="row mb-3">
             <div style="font-family: monospace">
