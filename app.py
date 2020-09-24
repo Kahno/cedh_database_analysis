@@ -6,7 +6,8 @@ from flask import json
 from flask import request
 from flask import Response
 
-from analyze import experimental_recommend
+from analyze import recommend, generality_info
+from data_cleanup import normalize
 from scraper import parse_decklist_platform
 
 
@@ -31,7 +32,14 @@ def fetch_decklist():
 
     fetch_result.strip("\n")
 
-    return Response(fetch_result, status=200, mimetype="application/json")
+    return Response(
+        json.dumps({
+            "decklist": fetch_result,
+            "generality": generality_info(decklist)
+        }),
+        status=200,
+        mimetype="application/json"
+    )
 
 
 @app.route("/recommend", methods=["POST"])
@@ -46,18 +54,18 @@ def recommend_cards():
     for card in decklist.split("\n"):
         if card:
             cleaned_card = " ".join(card.split()[1:])
-            cleaned_decklist.append(cleaned_card)
+            cleaned_decklist.append(normalize(cleaned_card))
 
     for card in excludelist.split("\n"):
         if card:
             cleaned_card = card.split("(")[0]
             cleaned_card = re.search(r"[0-9]*\.?\s*(.+)", cleaned_card).group(1)
-            cleaned_excludelist.append(cleaned_card.strip())
+            cleaned_excludelist.append(normalize(cleaned_card.strip()))
 
     if not cleaned_decklist:
         fetch_result = "No decklist provided! Fetch via decklist URL or paste in above text box."
     else:
-        fetch_result = experimental_recommend(cleaned_decklist, identity, cleaned_excludelist)
+        fetch_result = recommend(cleaned_decklist, identity, cleaned_excludelist)
 
     time.sleep(1)
 
