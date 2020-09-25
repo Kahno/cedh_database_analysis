@@ -7,7 +7,7 @@ import numpy as np
 MASTER_JSON_FILE = "json_data/cedh_decklists.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
-scryfall_dictIONARY = "json_data/scryfall_dictionary.json"
+SCRYFALL_DICTIONARY = "json_data/scryfall_dictionary.json"
 LITE_SCRYFALL_DICT = "json_data/lite_scryfall_dict.json"
 
 BASIC_LANDS = [
@@ -37,6 +37,10 @@ def load_database():
 
 
 def load_normalized():
+    """
+    Loads flat ddb with normalized names from json file
+    """
+
     with open(NORM_MASTER_JSON_FILE, "r") as f:
         data = json.loads(f.read())
 
@@ -44,6 +48,10 @@ def load_normalized():
 
 
 def load_lite():
+    """
+    Loads lightweight scryfall data from json file
+    """
+
     with open(LITE_SCRYFALL_DICT, "r") as f:
         data = json.loads(f.read())
 
@@ -55,7 +63,7 @@ def load_scryfall():
     Loads scryfall data from json file
     """
 
-    with open(scryfall_dictIONARY, "r") as f:
+    with open(SCRYFALL_DICTIONARY, "r") as f:
         scryfall_dict = json.loads(f.read())
 
     return scryfall_dict
@@ -224,6 +232,12 @@ def summary(dataset, output=False):
 
 
 def dataset_summary(normalized_dataset):
+    """
+    Constructs:
+        - frequency dictionary of all cards on ddb
+        - number of decks on ddb
+    """
+
     all_cards = {}
     num_decks = 0
 
@@ -249,6 +263,10 @@ def max_inc_ratio(card, ddb_cards, ddb_color_rep, scryfall_dict):
 
 
 def old_recommend(decklist, deck_color_identity):
+    """
+    Recommends cards for a given decklist based on ddb data - DEPRECATED
+    """
+
     dataset = load_database()
     s = load_scryfall()
     all_cards, num_decks = summary(dataset)
@@ -294,6 +312,10 @@ def old_recommend(decklist, deck_color_identity):
 
 
 def old_create_dataframe(dataset, all_cards):
+    """
+    Creates dataframe snapshot of ddb - DEPRECATED
+    """
+
     all_cards_x = list(filter(not_basic_land, all_cards.keys()))
     dataset_flat = {}
 
@@ -321,6 +343,10 @@ def old_create_dataframe(dataset, all_cards):
 
 
 def create_dataframe(flat_dataset, all_cards):
+    """
+    Creates dataframe snapshot of ddb
+    """
+
     all_cards_x = list(filter(not_basic_land, all_cards))
     deck_names = list(sorted(flat_dataset))
     all_cards_dict = {card: i for i, card in enumerate(all_cards_x)}
@@ -341,6 +367,10 @@ def create_dataframe(flat_dataset, all_cards):
 
 
 def similarity(df, decklist_vec, b, output=False):
+    """
+    Computes similarity between given decklist and given ddb deck
+    """
+
     v = df.loc[b].values
 
     result = sum(decklist_vec & v) / sum(decklist_vec | v)
@@ -354,16 +384,26 @@ def similarity(df, decklist_vec, b, output=False):
 
 
 def deck2vec(df, decklist):
+    """
+    Transforms given decklist to vector form based on ddb
+    """
 
     return pd.Series([1 if card in decklist else 0 for card in df.columns])
 
 
 def cards_in_common_ratio(decklist_1, decklist_2):
+    """
+    Returns the size of the intersection of two given decklists
+    """
 
     return len([a for a in decklist_1 if a in decklist_2]) / 100
 
 
 def deck_similarities(decklist, deck_color_identity):
+    """
+    Displays top 50 ddb decks based on similarity to given decklist
+    """
+
     dataset = load_database()
     flat_dataset = flatten(dataset)
     all_cards, num_decks = summary(dataset)
@@ -380,6 +420,10 @@ def deck_similarities(decklist, deck_color_identity):
 
 
 def recommend(decklist, deck_color_identity, excludelist):
+    """
+    Recommends cards for a given decklist based on ddb data
+    """
+
     s = load_lite()
     flat_dataset = load_normalized()
     all_cards, num_decks = dataset_summary(flat_dataset)
@@ -430,6 +474,10 @@ def recommend(decklist, deck_color_identity, excludelist):
 
 
 def arithmetic_generality(deck, all_cards, num_decks):
+    """
+    Computes generality score by calculating arithmetic average of scores
+    """
+
     if not deck:
         return 0
 
@@ -438,6 +486,10 @@ def arithmetic_generality(deck, all_cards, num_decks):
 
 
 def geometric_generality(deck, all_cards, num_decks):
+    """
+    Computes generality score by calculating geometric average of scores
+    """
+
     if not deck:
         return 0
 
@@ -446,11 +498,19 @@ def geometric_generality(deck, all_cards, num_decks):
 
 
 def decklist_generality_ranking(dataset, measure):
+    """
+    Displays top 10 ddb decks based on generality
+    """
+
     for deck in sorted(dataset, key=measure, reverse=True)[:10]:
         print(f"{measure(deck):.3f}, {deck}")
 
 
 def generality_info(deck):
+    """
+    Computes generality scores of all ddb decks and given decklist
+    """
+
     dataset = load_database()
     flat_dataset = flatten(dataset)
     all_cards, num_decks = summary(dataset)
@@ -476,13 +536,13 @@ if __name__ == "__main__":
     flat_dataset = flatten(load_database())
     all_cards, num_decks = summary(dataset)
 
-    def measure(x): 
+    def measure(x):
         return arithmetic_generality(flat_dataset[x], all_cards, num_decks)
     decklist_generality_ranking(flat_dataset, measure)
 
     print()
 
-    def measure_2(x): 
+    def measure_2(x):
         return geometric_generality(flat_dataset[x], all_cards, num_decks)
     decklist_generality_ranking(flat_dataset, measure_2)
 
