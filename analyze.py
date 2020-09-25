@@ -7,7 +7,7 @@ import numpy as np
 MASTER_JSON_FILE = "json_data/cedh_decklists.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
-SCRYFALL_CARD_DICTIONARY = "json_data/scryfall_card_dictionary.json"
+scryfall_dictIONARY = "json_data/scryfall_dictionary.json"
 LITE_SCRYFALL_DICT = "json_data/lite_scryfall_dict.json"
 
 BASIC_LANDS = [
@@ -23,6 +23,7 @@ BASIC_LANDS = [
     "Snow-Covered Mountain",
     "Snow-Covered Forest"
 ]
+
 
 def load_database():
     """
@@ -54,10 +55,10 @@ def load_scryfall():
     Loads scryfall data from json file
     """
 
-    with open(SCRYFALL_CARD_DICTIONARY, "r") as f:
-        scryfall_card_dict = json.loads(f.read())
+    with open(scryfall_dictIONARY, "r") as f:
+        scryfall_dict = json.loads(f.read())
 
-    return scryfall_card_dict
+    return scryfall_dict
 
 
 def flatten(data):
@@ -138,25 +139,25 @@ def deck_rep_by_color(dataset):
     return color_rep
 
 
-def max_inclusion_value(card, ddb_color_rep, scryfall_card_dict):
+def max_inclusion_value(card, ddb_color_rep, scryfall_dict):
     """
     Computes the total number of possible decks which are
     able to include a given card based on color identity
     """
 
-    card_identity = scryfall_card_dict[card]["color_identity"]
+    card_identity = scryfall_dict[card]["color_identity"]
 
     max_inclusion = 0
-    is_colorless = not card_identity
+    colorless = not card_identity
 
     for color_combo in ddb_color_rep:
-        if all(c in color_combo.upper() for c in card_identity) or is_colorless:
+        if all(c in color_combo.upper() for c in card_identity) or colorless:
             max_inclusion += ddb_color_rep[color_combo]
 
     return max_inclusion
 
 
-def deck_identity(decklist, scryfall_card_dict):
+def deck_identity(decklist, scryfall_dict):
     """
     Computes color identity of a given deck
     """
@@ -164,19 +165,21 @@ def deck_identity(decklist, scryfall_card_dict):
     deck_colors = set()
 
     for card in decklist:
-        for color in scryfall_card_dict[card]["color_identity"]:
+        for color in scryfall_dict[card]["color_identity"]:
             deck_colors.add(color)
 
     return list(deck_colors)
 
 
-def ci_filter(ci, scryfall_card_dict):
+def ci_filter(ci, scryfall_dict):
     """
-    Returns a function that filters a given card based on provided color identity
+    Returns a function that filters a given card based on
+    provided color identity
     """
-    s = scryfall_card_dict
 
-    return lambda x: (not s[x]["color_identity"]) or all(c in ci for c in s[x]["color_identity"])
+    def sc(x): return scryfall_dict[x]["color_identity"]
+
+    return lambda x: not sc(x) or all(c in ci for c in sc(x))
 
 
 def decklist_filter(decklist):
@@ -234,46 +237,50 @@ def dataset_summary(normalized_dataset):
     return all_cards, num_decks
 
 
-def max_inclusion_ratio(card, all_ddb_cards, ddb_color_rep, scryfall_card_dict):
+def max_inc_ratio(card, ddb_cards, ddb_color_rep, scryfall_dict):
     """
     Computes the database representation of a given card weighted
     by its maximum possible inclusion
     """
 
-    max_inclusion = max_inclusion_value(card, ddb_color_rep, scryfall_card_dict)
+    max_inclusion = max_inclusion_value(card, ddb_color_rep, scryfall_dict)
 
-    return all_ddb_cards[card] / max_inclusion
+    return ddb_cards[card] / max_inclusion
 
 
 def old_recommend(decklist, deck_color_identity):
     dataset = load_database()
-    scryfall_card_dict = load_scryfall()
-
-    flat_dataset = flatten(dataset)
+    s = load_scryfall()
     all_cards, num_decks = summary(dataset)
     ddb_color_rep = deck_rep_by_color(dataset)
 
-    mi_val = lambda x: max_inclusion_value(x, ddb_color_rep, scryfall_card_dict)
-    mi_ratio = lambda x: max_inclusion_ratio(x, all_cards, ddb_color_rep, scryfall_card_dict)
-    rep_ratio = lambda x: all_cards[x] / num_decks
-    combo = lambda x: 0.5 * mi_ratio(x) + 0.5 * rep_ratio(x)
+    def mi_val(x): return max_inclusion_value(x, ddb_color_rep, s)
+    def mi_ratio(x): return max_inc_ratio(x, all_cards, ddb_color_rep, s)
+    def rep_ratio(x): return all_cards[x] / num_decks
+    def combo(x): return 0.5 * mi_ratio(x) + 0.5 * rep_ratio(x)
 
     # Color identity filter
-    cif = ci_filter(deck_color_identity, scryfall_card_dict)
+    cif = ci_filter(deck_color_identity, s)
 
     # Card filter
     dif = decklist_filter(decklist)
 
     # Composite filter
-    cf = lambda x: cif(x) and dif(x) and not_basic_land(x)
+    def cf(x): return cif(x) and dif(x) and not_basic_land(x)
 
     output = ""
 
     output += f"Total number of decks on ddb: {num_decks}\n"
-    output += "MI - ratio of decks with card versus all decks in legal color identity\n"
-    output += "RP - ratio of decks with card versus all decks on the ddb\n\n"
+    output += ("MI - ratio of decks with card versus "
+               "all decks in legal color identity\n")
+    output += ("RP - ratio of decks with card versus "
+               "all decks on the ddb\n\n")
 
-    for i, card in enumerate(sorted(filter(cf, all_cards.keys()), key=combo, reverse=True)[:50]):
+    for i, card in enumerate(sorted(
+        filter(cf, all_cards.keys()),
+        key=combo,
+        reverse=True
+    )[:50]):
         numbering = f"{i+1}.".ljust(4, " ")
         card_name = f"{card}".ljust(50, " ")
 
@@ -326,7 +333,11 @@ def create_dataframe(flat_dataset, all_cards):
                 cur_line[all_cards_dict[card]] = 1
         data.append(cur_line)
 
-    return pd.DataFrame(data=np.array(data), index=deck_names, columns=all_cards_x)
+    return pd.DataFrame(
+        data=np.array(data),
+        index=deck_names,
+        columns=all_cards_x
+    )
 
 
 def similarity(df, decklist_vec, b, output=False):
@@ -354,20 +365,22 @@ def cards_in_common_ratio(decklist_1, decklist_2):
 
 def deck_similarities(decklist, deck_color_identity):
     dataset = load_database()
-    scryfall_card_dict = load_scryfall()
     flat_dataset = flatten(dataset)
     all_cards, num_decks = summary(dataset)
-    ddb_color_rep = deck_rep_by_color(dataset)
     df = create_dataframe(dataset, all_cards)
     decklist_vec = deck2vec(df, decklist)
 
-    for deck in sorted(flat_dataset, key=lambda x: similarity(df, decklist_vec, x), reverse=True)[:50]:
+    for deck in sorted(
+        dataset,
+        key=lambda x: similarity(df, decklist_vec, x),
+        reverse=True
+    )[:50]:
         print(f"Value: {similarity(df, decklist_vec, deck):.3f}, "
-              f"{cards_in_common(decklist, flat_dataset[deck])}, {deck}")
+              f"{cards_in_common_ratio(decklist, flat_dataset[deck])}, {deck}")
 
 
 def recommend(decklist, deck_color_identity, excludelist):
-    scryfall_card_dict = load_lite()
+    s = load_lite()
     flat_dataset = load_normalized()
     all_cards, num_decks = dataset_summary(flat_dataset)
 
@@ -379,37 +392,34 @@ def recommend(decklist, deck_color_identity, excludelist):
     df = create_dataframe(flat_dataset, all_cards)
     decklist_vec = deck2vec(df, decklist)
 
-    master_dict = {}
-
+    master = {}
     for deck in flat_dataset:
         cur_filtered = filter(lambda x: x not in decklist, flat_dataset[deck])
         cur_score = similarity(df, decklist_vec, deck)
 
         for card in cur_filtered:
-            if card not in master_dict:
-                master_dict[card] = []
+            if card not in master:
+                master[card] = []
 
-            master_dict[card].append(cur_score)
+            master[card].append(cur_score)
 
-    measure = lambda x: np.power(np.prod(master_dict[x]), 1/len(master_dict[x]))
+    def measure(x): return np.power(np.prod(master[x]), 1 / len(master[x]))
+    def mi_val(x): return max_inclusion_value(x, ddb_color_rep, s)
+    def mi_ratio(x): return max_inc_ratio(x, all_cards, ddb_color_rep, s)
+    def rep_ratio(x): return all_cards[x] / num_decks
+    def composite(x): return (0.5 * mi_ratio(x) + 0.5 * rep_ratio(x))
 
-    mi_val = lambda x: max_inclusion_value(x, ddb_color_rep, scryfall_card_dict)
-    mi_ratio = lambda x: max_inclusion_ratio(x, all_cards, ddb_color_rep, scryfall_card_dict)
-    rep_ratio = lambda x: all_cards[x] / num_decks
+    cif = ci_filter(deck_color_identity, s)
+    def lf(x): return "Land" not in s[x]["type_line"]
+    def ef(x): return x not in excludelist
+    def cf(x): return cif(x) and lf(x) and ef(x)
 
-    composite = lambda x: (0.5 * mi_ratio(x) + 0.5 * rep_ratio(x))
-
-    cif = ci_filter(deck_color_identity, scryfall_card_dict)
-    lf = lambda x: "Land" not in scryfall_card_dict[x]["type_line"]
-    ef = lambda x: x not in excludelist
-    cf = lambda x: cif(x) and lf(x) and ef(x)
-
-    shortlist = sorted(filter(cf, master_dict), key=composite, reverse=True)[:20]
+    shortlist = sorted(filter(cf, master), key=composite, reverse=True)[:20]
     output = ""
 
     for i, card in enumerate(sorted(shortlist, key=measure, reverse=True)):
         numbering = f"{i+1}.".ljust(4, " ")
-        card_name = f"{scryfall_card_dict[card]['full_name']}".ljust(40, " ")
+        card_name = f"{s[card]['full_name']}".ljust(40, " ")
 
         output += (
             f"{numbering}{card_name}({all_cards[card]}/{mi_val(card)}) "
@@ -435,16 +445,16 @@ def geometric_generality(deck, all_cards, num_decks):
     return np.power(np.prod(a), 1/len(a))
 
 
-def decklist_generality_ranking(generality_measure):
-    for deck in sorted(flat_dataset.keys(), key=generality_measure, reverse=True)[:10]:
-        print(f"{generality_measure(deck):.3f}, {deck}")
+def decklist_generality_ranking(dataset, measure):
+    for deck in sorted(dataset, key=measure, reverse=True)[:10]:
+        print(f"{measure(deck):.3f}, {deck}")
 
 
 def generality_info(deck):
     dataset = load_database()
     flat_dataset = flatten(dataset)
     all_cards, num_decks = summary(dataset)
-    measure = lambda x: arithmetic_generality(x, all_cards, num_decks)
+    def measure(x): return arithmetic_generality(x, all_cards, num_decks)
     generality_list = [
         [name, measure(flat_dataset[name]), "blue"] for name in flat_dataset
     ]
@@ -462,34 +472,19 @@ if __name__ == "__main__":
         for i, x in enumerate(data):
             test_deck.append(data[x]["name"])
 
-    #print(old_recommend(test_deck, deck_identity(test_deck, load_scryfall())))
-    #deck_similarities(test_deck, ["W", "U", "B", "G"])
-    #print(recommend(test_deck, ["W", "U", "B", "G"]))
-
-    """
-    ddb_filter = lambda x: not_basic_land(x) and (all_cards[x] / num_decks >= 0.1)
-
-    dataset = load_database()
-    all_cards, num_decks = summary(dataset)
-    for i, card in enumerate(sorted(
-        filter(ddb_filter, all_cards.keys()),
-        key=lambda x: all_cards[x],
-        reverse=True
-    )):
-        print(f"{i+1}. {card} ({all_cards[card]})")
-    """
-
     dataset = load_database()
     flat_dataset = flatten(load_database())
     all_cards, num_decks = summary(dataset)
 
-    measure = lambda x: arithmetic_generality(flat_dataset[x], all_cards, num_decks)
-    decklist_generality_ranking(measure)
+    def measure(x): 
+        return arithmetic_generality(flat_dataset[x], all_cards, num_decks)
+    decklist_generality_ranking(flat_dataset, measure)
 
     print()
 
-    measure_2 = lambda x: geometric_generality(flat_dataset[x], all_cards, num_decks)
-    decklist_generality_ranking(measure_2)
+    def measure_2(x): 
+        return geometric_generality(flat_dataset[x], all_cards, num_decks)
+    decklist_generality_ranking(flat_dataset, measure_2)
 
     print()
 

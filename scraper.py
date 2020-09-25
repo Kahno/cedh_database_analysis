@@ -155,8 +155,13 @@ def parse_tappedout(url):
                     f"https://tappedout.net{commander_link.get('href')}",
                     headers=HEADERS
                 )
-                commander_soup = BeautifulSoup(response.text, features="html.parser")
-                result.append(commander_soup.select(".well-jumbotron h1")[0].text.strip())
+                commander_soup = BeautifulSoup(
+                    response.text,
+                    features="html.parser"
+                )
+                result.append(
+                    commander_soup.select(".well-jumbotron h1")[0].text.strip()
+                )
                 time.sleep(1)
 
     return result
@@ -173,7 +178,8 @@ def parse_archidekt(url):
         if card["category"].lower() == "maybeboard":
             continue
 
-        output_decklist += int(card["quantity"]) * [card["card"]["oracleCard"]["name"]]
+        output_decklist += (int(card["quantity"]) *
+                            [card["card"]["oracleCard"]["name"]])
 
     # NOTE: Commander is already present in decklist
     # so it does not have to be added separately
@@ -186,9 +192,13 @@ def parse_scryfall(url):
     soup = BeautifulSoup(response.text, features="html.parser")
     result = []
 
-    for i, card in enumerate(soup.select(".deck-list-section-entries .deck-list-entry")):
+    for i, card in enumerate(
+        soup.select(".deck-list-section-entries .deck-list-entry")
+    ):
         num = int(card.select(".deck-list-entry-count")[0].text.strip())
-        name = card.select(".deck-list-entry-name")[0].text.strip().split("\n")[0]
+        name = card.select(
+            ".deck-list-entry-name"
+        )[0].text.strip().split("\n")[0]
         result += num * [name]
 
     return result
@@ -196,7 +206,10 @@ def parse_scryfall(url):
 
 def parse_deckbox(url):
     response = requests.get(url, headers=HEADERS)
-    deck_json = re.search(r"Tcg\.MtgDeck\({.+?}, ({.+})\);", response.text).group(1)
+    deck_json = re.search(
+        r"Tcg\.MtgDeck\({.+?}, ({.+})\);",
+        response.text
+    ).group(1)
     data = json.loads(deck_json)
     result = []
 

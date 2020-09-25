@@ -48,24 +48,25 @@ def recommend_cards():
     decklist = data_json["decklist"]
     excludelist = data_json["excludelist"]
     identity = data_json["identity"]
-    cleaned_decklist = []
-    cleaned_excludelist = []
+    clean_decklist = []
+    clean_excludelist = []
 
     for card in decklist.split("\n"):
         if card:
-            cleaned_card = " ".join(card.split()[1:])
-            cleaned_decklist.append(normalize(cleaned_card))
+            clean_card = " ".join(card.split()[1:])
+            clean_decklist.append(normalize(clean_card))
 
     for card in excludelist.split("\n"):
         if card:
-            cleaned_card = card.split("(")[0]
-            cleaned_card = re.search(r"[0-9]*\.?\s*(.+)", cleaned_card).group(1)
-            cleaned_excludelist.append(normalize(cleaned_card.strip()))
+            clean_card = card.split("(")[0]
+            clean_card = re.search(r"[0-9]*\.?\s*(.+)", clean_card).group(1)
+            clean_excludelist.append(normalize(clean_card.strip()))
 
-    if not cleaned_decklist:
-        fetch_result = "No decklist provided! Fetch via decklist URL or paste in above text box."
+    if not clean_decklist:
+        fetch_result = ("No decklist provided! Fetch via decklist "
+                        "URL or paste in above text box.")
     else:
-        fetch_result = recommend(cleaned_decklist, identity, cleaned_excludelist)
+        fetch_result = recommend(clean_decklist, identity, clean_excludelist)
 
     time.sleep(1)
 
