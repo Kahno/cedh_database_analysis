@@ -3,6 +3,8 @@ import json
 import pandas as pd
 import numpy as np
 
+from sklearn.cluster import DBSCAN
+
 
 MASTER_JSON_FILE = "json_data/cedh_decklists.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
@@ -366,6 +368,13 @@ def create_dataframe(flat_dataset, all_cards):
     )
 
 
+def df_similarity(df, a, b):
+    v = df.loc[a].values
+    w = df.loc[b].values
+
+    return sum(v & w) / sum(v | w)
+
+
 def similarity(df, decklist_vec, b, output=False):
     """
     Computes similarity between given decklist and given ddb deck
@@ -481,7 +490,12 @@ def arithmetic_generality(deck, all_cards, num_decks):
     if not deck:
         return 0
 
-    a = [all_cards[card] / num_decks for card in filter(not_basic_land, deck)]
+    def ddb_num(card):
+        if card not in all_cards:
+            return 0
+        return all_cards[card] / num_decks
+
+    a = [ddb_num(card) for card in filter(not_basic_land, deck)]
     return sum(a) / len(a)
 
 
@@ -493,7 +507,12 @@ def geometric_generality(deck, all_cards, num_decks):
     if not deck:
         return 0
 
-    a = [all_cards[card] / num_decks for card in filter(not_basic_land, deck)]
+    def ddb_num(card):
+        if card not in all_cards:
+            return 0
+        return all_cards[card] / num_decks
+
+    a = [ddb_num(card) for card in filter(not_basic_land, deck)]
     return np.power(np.prod(a), 1/len(a))
 
 
@@ -525,6 +544,7 @@ def generality_info(deck):
 
 if __name__ == "__main__":
 
+    """
     # Json data pulled from deckbox used for testing
     test_deck = []
     with open("test_deck.json", "r") as f:
@@ -550,3 +570,36 @@ if __name__ == "__main__":
 
     print(arithmetic_generality(["Mana Crypt"], all_cards, num_decks))
     print(geometric_generality(["Mana Crypt"], all_cards, num_decks))
+    """
+
+    data = load_normalized()
+    all_cards, num_decks = dataset_summary(data)
+    df = create_dataframe(data, all_cards)
+
+    def jdist(a, b): return 1 - sum(a & b) / sum(a | b)
+
+    result = []
+
+    for deck1 in df.index:
+        cur_dists = []
+        for deck2 in df.index:
+            cur_dists.append(jdist(df.loc[deck1], df.loc[deck2]))
+        result.append(cur_dists)
+
+    print(result)
+
+    clustering = DBSCAN(eps=0.5, min_samples=3, metric="precomputed").fit(
+        np.array(result))
+    cluster_results = {}
+
+    for i, label in enumerate(clustering.labels_):
+        if str(label) not in cluster_results:
+            cluster_results[str(label)] = []
+
+        cluster_results[str(label)].append(df.index[i])
+
+    for label in cluster_results:
+        print(label)
+
+        for deck in cluster_results[label]:
+            print(f"\t{deck}")
