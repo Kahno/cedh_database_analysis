@@ -1,3 +1,4 @@
+import re
 import json
 
 import pandas as pd
@@ -9,7 +10,7 @@ from sklearn.cluster import DBSCAN
 MASTER_JSON_FILE = "json_data/cedh_decklists.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
-SCRYFALL_DICTIONARY = "json_data/scryfall_dictionary.json"
+SCRYFALL_DICTIONARY = "json_data/scryfall_card_dictionary.json"
 LITE_SCRYFALL_DICT = "json_data/lite_scryfall_dict.json"
 
 BASIC_LANDS = [
@@ -49,23 +50,23 @@ def load_normalized():
     return data
 
 
-def load_lite():
+def load_lite(filename=LITE_SCRYFALL_DICT):
     """
     Loads lightweight scryfall data from json file
     """
 
-    with open(LITE_SCRYFALL_DICT, "r") as f:
+    with open(filename, "r") as f:
         data = json.loads(f.read())
 
     return data
 
 
-def load_scryfall():
+def load_scryfall(filename=SCRYFALL_DICTIONARY):
     """
     Loads scryfall data from json file
     """
 
-    with open(SCRYFALL_DICTIONARY, "r") as f:
+    with open(filename, "r") as f:
         scryfall_dict = json.loads(f.read())
 
     return scryfall_dict
@@ -84,6 +85,23 @@ def flatten(data):
                 flat_data[deck] = data[color][deck_type][deck]
 
     return flat_data
+
+
+def normalize(card_name):
+    """
+    Transforms card name into lower case without special characters
+    """
+
+    card_name = card_name.lower().replace("-", " ")
+
+    card_name = re.sub(r"[\!\'\"\(\)\&\,\.\/\:\?\_\®]", "", card_name)
+    card_name = re.sub(r"[àáâ]", "a", card_name)
+    card_name = re.sub(r"[é]", "e", card_name)
+    card_name = re.sub(r"[í]", "i", card_name)
+    card_name = re.sub(r"[ö]", "o", card_name)
+    card_name = re.sub(r"[úû]", "u", card_name)
+
+    return card_name
 
 
 def find_decklist(dataset, target_name):
@@ -545,33 +563,6 @@ def generality_info(deck):
 if __name__ == "__main__":
 
     """
-    # Json data pulled from deckbox used for testing
-    test_deck = []
-    with open("test_deck.json", "r") as f:
-        data = json.loads(f.read())
-        for i, x in enumerate(data):
-            test_deck.append(data[x]["name"])
-
-    dataset = load_database()
-    flat_dataset = flatten(load_database())
-    all_cards, num_decks = summary(dataset)
-
-    def measure(x):
-        return arithmetic_generality(flat_dataset[x], all_cards, num_decks)
-    decklist_generality_ranking(flat_dataset, measure)
-
-    print()
-
-    def measure_2(x):
-        return geometric_generality(flat_dataset[x], all_cards, num_decks)
-    decklist_generality_ranking(flat_dataset, measure_2)
-
-    print()
-
-    print(arithmetic_generality(["Mana Crypt"], all_cards, num_decks))
-    print(geometric_generality(["Mana Crypt"], all_cards, num_decks))
-    """
-
     data = load_normalized()
     all_cards, num_decks = dataset_summary(data)
     df = create_dataframe(data, all_cards)
@@ -603,3 +594,4 @@ if __name__ == "__main__":
 
         for deck in cluster_results[label]:
             print(f"\t{deck}")
+    """
