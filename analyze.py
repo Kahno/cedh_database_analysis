@@ -14,17 +14,17 @@ SCRYFALL_DICTIONARY = "json_data/scryfall_card_dictionary.json"
 LITE_SCRYFALL_DICT = "json_data/lite_scryfall_dict.json"
 
 BASIC_LANDS = [
-    "Plains",
-    "Island",
-    "Swamp",
-    "Mountain",
-    "Forest",
+    "plains",
+    "island",
+    "swamp",
+    "mountain",
+    "forest",
 
-    "Snow-Covered Plains",
-    "Snow-Covered Island",
-    "Snow-Covered Swamp",
-    "Snow-Covered Mountain",
-    "Snow-Covered Forest"
+    "snow covered plains",
+    "snow covered island",
+    "snow covered swamp",
+    "snow covered mountain",
+    "snow covered forest"
 ]
 
 
@@ -131,7 +131,7 @@ def not_basic_land(card):
     Checks if a given card is not one of the basic lands
     """
 
-    return card not in BASIC_LANDS
+    return normalize(card) not in BASIC_LANDS
 
 
 def deck_similarity(dataset, deck_1, deck_2):
@@ -446,7 +446,7 @@ def deck_similarities(decklist, deck_color_identity):
               f"{cards_in_common_ratio(decklist, flat_dataset[deck])}, {deck}")
 
 
-def recommend(decklist, deck_color_identity, excludelist):
+def recommend(decklist, deck_color_identity, excludelist, land_mode=False):
     """
     Recommends cards for a given decklist based on ddb data
     """
@@ -481,9 +481,13 @@ def recommend(decklist, deck_color_identity, excludelist):
     def composite(x): return (0.5 * mi_ratio(x) + 0.5 * rep_ratio(x))
 
     cif = ci_filter(deck_color_identity, s)
-    def lf(x): return "Land" not in s[x]["type_line"]
+    def lf(x): return "Land" in s[x]["type_line"]
     def ef(x): return x not in excludelist
-    def cf(x): return cif(x) and lf(x) and ef(x)
+
+    def cf(x):
+        if land_mode:
+            return cif(x) and ef(x) and lf(x) and not_basic_land(x)
+        return cif(x) and ef(x) and (not lf(x))
 
     shortlist = sorted(filter(cf, master), key=composite, reverse=True)[:20]
     output = ""
@@ -494,6 +498,42 @@ def recommend(decklist, deck_color_identity, excludelist):
 
         output += (
             f"{numbering}{card_name}({all_cards[card]}/{mi_val(card)}) "
+            f"(DS: {measure(card):.3f})\n"
+        )
+
+    return output
+
+
+def compare(decklist, deck_color_identity):
+    flat_dataset = load_normalized()
+    all_cards, num_decks = dataset_summary(flat_dataset)
+    df = create_dataframe(flat_dataset, all_cards)
+    decklist_vec = deck2vec(df, decklist)
+
+    master = {}
+    for deck in flat_dataset:
+        cur_filtered = filter(lambda x: x in decklist, flat_dataset[deck])
+        cur_score = similarity(df, decklist_vec, deck)
+
+        for card in cur_filtered:
+            if card not in master:
+                master[card] = []
+
+            master[card].append(cur_score)
+
+    def measure(x):
+        if x not in master:
+            return 0
+        return np.power(np.prod(master[x]), 1 / len(master[x]))
+
+    output = ""
+
+    for i, card in enumerate(sorted(decklist, key=measure)):
+        numbering = f"{i+1}.".ljust(4, " ")
+        card_name = f"{decklist[card]}".ljust(40, " ")
+
+        output += (
+            f"{numbering}{card_name} "
             f"(DS: {measure(card):.3f})\n"
         )
 
@@ -595,3 +635,23 @@ if __name__ == "__main__":
         for deck in cluster_results[label]:
             print(f"\t{deck}")
     """
+
+    data = load_normalized()
+    all_cards, num_decks = dataset_summary(data)
+    df = create_dataframe(data, all_cards)
+    scry = load_lite()
+
+    cif = ci_filter(["U", "R"], scry)
+
+    for card in sorted(
+        filter(
+            lambda x: (
+                cif(x) and
+                not_basic_land(x) and
+                "Land" in scry[x]["type_line"]
+            ),
+            all_cards
+        ),
+        key=lambda x: all_cards[x]
+    ):
+        print(card, all_cards[card])

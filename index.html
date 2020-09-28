@@ -1,7 +1,7 @@
 <html>
 
 <head>
-    <title>cEDH Card Recommender</title>
+    <title>cEDH Deck Helper</title>
 
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -152,12 +152,7 @@
                 xhr.send(JSON.stringify(deck_info));
             }
 
-            function recommendDDBCards() {
-
-                let btn = document.getElementById("rec");
-                btn.innerHTML = "Recommending    <span class='spinner-border spinner-border-sm'></span>";
-                btn.disabled = true;
-
+            function decklistPayload() {
                 let identity = [];
                 let colorBtns = document.getElementsByClassName("color-btn");
                 for (let i = 0; i < colorBtns.length; i++) {
@@ -166,26 +161,76 @@
                         identity.push(curBtn.getAttribute("name"));
                     }
                 }
-                let deck_info = {
+                return {
                     "decklist": $("#decklist").val(),
                     "excludelist": $("#excludelist").val(),
                     "identity": identity
                 };
+            }
+
+            function compareAgainstDDB() {
+
+                let btn = document.getElementById("comp");    
+                btn.innerHTML = "Comparing    <span class='spinner-border spinner-border-sm'></span>";
+                btn.disabled = true;
+
                 let xhr = new XMLHttpRequest();
                 xhr.onreadystatechange = function () {
                     if (this.readyState != 4) return;
                     if (this.status == 200) {
                         document.getElementById("result").value = this.response;
 
-                        btn.innerHTML = "Recommend cards";
+                        btn.innerHTML = "Compare against DDB";
+                        btn.disabled = false;
+                    }
+                };
+                xhr.open("POST", "/compare", true);
+                xhr.send(JSON.stringify(decklistPayload()));
+            }
+
+            function recommendDDBLands() {
+
+                let btn = document.getElementById("landrec");
+                btn.innerHTML = "Recommending    <span class='spinner-border spinner-border-sm'></span>";
+                btn.disabled = true;
+                
+                let xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (this.readyState != 4) return;
+                    if (this.status == 200) {
+                        document.getElementById("result").value = this.response;
+
+                        btn.innerHTML = "Recommend DDB lands";
+                        btn.disabled = false;
+                    }
+                };
+                xhr.open("POST", "/recommend_lands", true);
+                xhr.send(JSON.stringify(decklistPayload()));
+            }
+            
+            function recommendDDBCards() {
+
+                let btn = document.getElementById("rec");
+                btn.innerHTML = "Recommending    <span class='spinner-border spinner-border-sm'></span>";
+                btn.disabled = true;
+
+                let xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (this.readyState != 4) return;
+                    if (this.status == 200) {
+                        document.getElementById("result").value = this.response;
+
+                        btn.innerHTML = "Recommend DDB cards";
                         btn.disabled = false;
                     }
                 };
                 xhr.open("POST", "/recommend", true);
-                xhr.send(JSON.stringify(deck_info));
+                xhr.send(JSON.stringify(decklistPayload()));
             }
 
             document.getElementById("fetch").addEventListener("click", fetchDecklist);
+            document.getElementById("comp").addEventListener("click", compareAgainstDDB);
+            document.getElementById("landrec").addEventListener("click", recommendDDBLands);
             document.getElementById("rec").addEventListener("click", recommendDDBCards);
 
             let colorBtns = document.getElementsByClassName("color-btn");
@@ -205,26 +250,22 @@
 </head>
 <body style="background-color: #dff9fb">
     <div class="container col-12 col-md-10 col-lg-8 col-xl-7 mx-auto">
-        <div class="d-flex justify-content-center">
-            <div>
-                <h1>Competitive EDH Card Recommender</h1>
-            </div>
-        </div>
-
-        <div style="height: 2rem"></div>
+        <div style="height: 1rem"></div>
 
         <div id="chart_div"></div>
 
-        <div class="row mb-3">
+        <div class="row mb-1">
             <div style="font-family: monospace">
-
-
 
                 <ul style="list-style-type:none;" class="pl-3">
                     <li>1a) Fetch desired decklist via URL by clicking "Scrape decklist"</li>
                     <li>1b) Paste desired decklist into the designated text box</li>
+                    <li>-</li>
                     <li>2) Select color identity by clicking desired color buttons</li>
-                    <li>3) Click "Recommend cards"</li>
+                    <li>-</li>
+                    <li>3a) Click "Compare against DDB" --> displays fetched decklist cards ranked by DDB bias</li>
+                    <li>3b) Click "Recommend DDB lands" --> displays ranked list of land card suggestions</li>
+                    <li>3c) Click "Recommend DDB cards" --> displays ranked list of non-land card suggestions</li>
                 </ul>
             </div>
         </div>
@@ -325,7 +366,15 @@
                     </button>
 
                 <div>
-                    <button type="submit" id="rec" class="btn basic-btn w-100">Recommend cards</button>
+                    <button type="submit" id="comp" class="btn basic-btn w-100 mb-1">Compare against DDB</button>
+                </div>
+
+                <div>
+                    <button type="submit" id="landrec" class="btn basic-btn w-100 mb-1">Recommend DDB lands</button>
+                </div>
+
+                <div>
+                    <button type="submit" id="rec" class="btn basic-btn w-100">Recommend DDB cards</button>
                 </div>
 
             </div>
