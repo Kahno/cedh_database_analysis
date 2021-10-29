@@ -17,7 +17,7 @@ def clean(url):
     url = url.split("?")[0]
     url = url.rstrip("/") + "/"
 
-    return url
+    return url.strip()
 
 
 def parse(url):
@@ -113,10 +113,9 @@ def parse_decklist_platform(url, wait_time=0):
 
 def parse_moxfield(url):
     deck_id = re.search(r"moxfield\.com\/decks\/([\w\-]+)\/?", url).group(1)
-    api_string = f"https://api.moxfield.com/v1/decks/all/{deck_id}"
-    response = requests.get(api_string, headers=HEADERS)
+    api_string = f"https://api.moxfield.com/v2/decks/all/{deck_id}"
+    response = requests.get(api_string, headers=HEADERS, timeout=5)
     result = response.json()
-
     output_decklist = []
     for card in result["mainboard"]:
         output_decklist += int(result["mainboard"][card]["quantity"]) * [card]
@@ -219,6 +218,74 @@ def parse_deckbox(url):
     return result
 
 
+def safe_parse(url):
+    deck_dict = {}
+
+    response = requests.get(url, headers=HEADERS)
+    soup = BeautifulSoup(response.text, features="html.parser")
+
+    for p in soup.select("#decks > li:not(.hidden)"):
+
+        for deck_link in p.select(".ddb-decklists li a"):
+
+            name = deck_link.text.strip()
+            deck_dict[name] = clean(deck_link.get("href"))
+
+    with open("deck_dict.json", "w") as f:
+        json.dump(deck_dict, f)
+
+
+def create_master_json(url):
+    master_json = {}
+    response = requests.get(url, headers=HEADERS)
+    soup = BeautifulSoup(response.text, features="html.parser")
+
+    for p in soup.select("#decks > li:not(.hidden)"):
+        color = parse_color(p)
+        deck_type = parse_deck_type(p)
+
+        for deck_link in p.select(".ddb-decklists li a"):
+            name = deck_link.text.strip()
+
+            if color not in master_json:
+                master_json[color] = {}
+
+            if deck_type not in master_json[color]:
+                master_json[color][deck_type] = {}
+
+            master_json[color][deck_type][name] = []
+
+    with open("cedh_decklists.json", "w") as f:
+        json.dump(master_json, f)
+
+
+def parse_via_dict(filename):
+    with open(filename, "r") as f:
+        data = json.loads(f.read())
+
+    with open("cedh_decklists.json", "r") as g:
+        json_data = json.loads(g.read())
+
+    for c in json_data:
+        for d in json_data[c]:
+            for x in json_data[c][d]:
+
+                if json_data[c][d][x]:
+                    print("Already scraped !!")
+                else:
+                    try:
+                        print(f"Have to scrape deck: {x}")
+                        decklist = parse_decklist_platform(data[x])
+                        json_data[c][d][x] = decklist
+                        time.sleep(3)
+
+                    except Exception:
+                        print("Some exception occurred.")
+
+    with open("cedh_decklists.json", "w") as h:
+        json.dump(json_data, h)
+
+
 URL = "https://cedh-decklist-database.com/"
 
 DECKLIST_PLATFORM_PARSERS = {
@@ -231,4 +298,8 @@ DECKLIST_PLATFORM_PARSERS = {
 
 
 if __name__ == "__main__":
-    parse(URL)
+    # parse(URL)
+    # safe_parse(URL)
+    # create_master_json(URL)
+
+    parse_via_dict("deck_dict.json")

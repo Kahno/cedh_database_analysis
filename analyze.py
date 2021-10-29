@@ -212,7 +212,7 @@ def ci_filter(ci, scryfall_dict):
 
 def decklist_filter(decklist):
     """
-    Returns boolean function that check if input card is found
+    Returns boolean function that checks if input card is found
     in a given decklist
     """
 
@@ -487,7 +487,9 @@ def recommend(decklist, deck_color_identity, excludelist, land_mode=False):
     def cf(x):
         if land_mode:
             return cif(x) and ef(x) and lf(x) and not_basic_land(x)
-        return cif(x) and ef(x) and (not lf(x))
+        return cif(x) and ef(x) and (not lf(x)) #and (
+            #"Creature" not in s[x]["type_line"] and s[x]["cmc"] <= 4
+        #)
 
     shortlist = sorted(filter(cf, master), key=composite, reverse=True)[:20]
     output = ""
@@ -579,7 +581,7 @@ def decklist_generality_ranking(dataset, measure):
     Displays top 10 ddb decks based on generality
     """
 
-    for deck in sorted(dataset, key=measure, reverse=True)[:10]:
+    for deck in sorted(dataset, key=measure, reverse=True)[:20]:
         print(f"{measure(deck):.3f}, {deck}")
 
 
@@ -600,58 +602,246 @@ def generality_info(deck):
     return list(sorted(generality_list, key=lambda x: x[1]))
 
 
-if __name__ == "__main__":
-
-    """
+def generate_aggregate(any_base_cards):
     data = load_normalized()
-    all_cards, num_decks = dataset_summary(data)
-    df = create_dataframe(data, all_cards)
+    scry = load_lite()
 
-    def jdist(a, b): return 1 - sum(a & b) / sum(a | b)
+    aggregated_deck = dict()
+    num_decks = 0
 
+    for deck in data:
+        if any(c in data[deck] for c in any_base_cards):
+            num_decks += 1
+            for card in data[deck]:
+                if card in BASIC_LANDS:
+                    continue
+                if card not in aggregated_deck:
+                    aggregated_deck[card] = 0
+
+                aggregated_deck[card] += 1
+
+    for x in sorted([c for c in aggregated_deck], key=lambda x: aggregated_deck[x]):
+        if scry[x]["type_line"] == "Land":
+            continue
+        print(f"{aggregated_deck[x]}/{num_decks}", x)
+
+
+def synergy_increase(base_card):
+    data = load_normalized()
+    scry = load_lite() 
+    all_cards, _ = dataset_summary(data)
+    dcr = deck_rep_by_color(load_database())
+    decks = data.values()
+
+    def syn_inc(x):
+        one = num_decks_with_card(x, decks)
+        if not one: return 0
+
+        two = max_inclusion_value(x, dcr, scry)
+        three = num_decks_with_cards(x, base_card, decks)
+        four = miv_dual(x, base_card, dcr, scry)
+
+        return two * (three/four - one/two) / one
+
+    for card in sorted(
+        filter(
+            lambda x: (all([
+                "Land" not in scry[x]["type_line"],
+                syn_inc(x) > 0,
+                num_decks_with_card(x) > 1,  # Hack
+            ])),
+            all_cards
+        ),
+        key=syn_inc
+    ):
+        print(f"+{round(syn_inc(card), 3)}\t{card}")
+
+
+def db_ci_info(data=None):
+    if not data:
+        data = load_database()
+    deck_ci = dict()
+    for color in data:
+        for deck_type in data[color]:
+            for deck in data[color][deck_type]:
+                deck_ci[deck] = set([x.upper() for x in color])
+    return deck_ci
+
+
+def nonland_synergy(x):
+    data = load_normalized()
+    database = load_database()
+
+    scry = load_lite() 
+    all_cards, _ = dataset_summary(data)
+    dcr = deck_rep_by_color(database)
+    deck_ci = db_ci_info(database)
+
+    decks_with_base_card = []
+    for deck in data:
+        if x in data[deck]:
+            decks_with_base_card.append(deck)
+
+    datavals = data.values()
     result = []
+    for y in all_cards:
+        if "Land" in scry[y]["type_line"]:
+            continue
+        yci = set(scry[y]["color_identity"])
 
-    for deck1 in df.index:
-        cur_dists = []
-        for deck2 in df.index:
-            cur_dists.append(jdist(df.loc[deck1], df.loc[deck2]))
-        result.append(cur_dists)
+        # decks with y
+        a = num_decks_with_card(y, datavals)
+        
+        # decks with y ci
+        b = max_inclusion_value(y, dcr, scry)
 
-    print(result)
+        # decks with base_card and y
+        c = sum(y in data[deck] for deck in decks_with_base_card) 
 
-    clustering = DBSCAN(eps=0.5, min_samples=3, metric="precomputed").fit(
-        np.array(result))
-    cluster_results = {}
+        # decks with base_card and y ci
+        d = sum(yci.issubset(deck_ci[deck]) for deck in decks_with_base_card)
 
-    for i, label in enumerate(clustering.labels_):
-        if str(label) not in cluster_results:
-            cluster_results[str(label)] = []
+        if c == 0:
+            increase = 0
+        else:
+            increase = (c/d - a/b) / (a/b)
 
-        cluster_results[str(label)].append(df.index[i])
+        #print(f"{a}/{b}\t{c}/{d}\t{round(increase, 4)}\t{y}")
+        result.append([increase, y])
 
-    for label in cluster_results:
-        print(label)
+    for increase, card in sorted(result, key=lambda x: x[0], reverse=True):
+        print(round(increase, 4), card)
 
-        for deck in cluster_results[label]:
-            print(f"\t{deck}")
-    """
+
+def miv_dual(x, y, dcr, scry):
+    ci = list(set(scry[x]["color_identity"]) | set(scry[y]["color_identity"]))
+    colorless = not ci
+    max_inclusion = 0
+
+    for color_combo in dcr:
+        if all(c in color_combo.upper() for c in ci) or colorless:
+            max_inclusion += dcr[color_combo]
+
+    return max_inclusion
+
+
+def num_decks_with_card(x, decks=None):
+    if not decks:
+        decks = load_normalized().values()
+    return sum(x in deck for deck in decks)
+
+
+def num_decks_with_cards(x, y, decks=None):
+    if not decks:
+        decks = load_normalized().values()
+    return sum((x in deck) and (y in deck) for deck in decks)
+
+
+def create_core(colors, ratio=0.75):
+    colors = [x.lower() for x in colors]
+    color_code = "".join([x for x in "wubrg" if x in colors])
+    data_complex = load_database()
+    
+    aggregate = dict()
+    num_decks = 0
+
+    for c in data_complex:
+        if c == color_code:
+            for d in data_complex[c]:
+                for deck in data_complex[c][d]:
+                    num_decks += 1
+                    for card in data_complex[c][d][deck]:
+                        if normalize(card) in BASIC_LANDS:
+                            continue
+
+                        if card not in aggregate:
+                            aggregate[card] = 0
+
+                        aggregate[card] += 1
+
+    core = [c for c in aggregate if aggregate[c] >= ratio * num_decks]
+
+    return "\n".join([f"1 {c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
+
+
+if __name__ == "__main__":
 
     data = load_normalized()
     all_cards, num_decks = dataset_summary(data)
     df = create_dataframe(data, all_cards)
     scry = load_lite()
 
-    cif = ci_filter(["U", "R"], scry)
+    ##################################
+    data_complex = load_database()
+    ddb_color_rep = deck_rep_by_color(data_complex)
+    ##################################
 
+    cif = ci_filter(["B",], scry)
+
+    def miv(x): return max_inclusion_value(x, ddb_color_rep, scry)
+
+    """"""
     for card in sorted(
         filter(
             lambda x: (
-                cif(x) and
-                not_basic_land(x) #and
-                #"Land" in scry[x]["type_line"]
+                all([
+                    "Land" not in scry[x]["type_line"],
+                    "Artifact" not in scry[x]["type_line"],
+                    cif(x),
+                    #not_basic_land(x),
+                    #len(scry[x]["color_identity"]) > 1,
+                ])
             ),
             all_cards
         ),
-        key=lambda x: all_cards[x]
+        key=lambda x: all_cards[x]# / miv(x)
     ):
-        print(card, all_cards[card])
+
+        #print(f"({all_cards[card]} / {num_decks}) {card}")
+
+        #val = round(100 * all_cards[card] / miv(card), 2)
+        #print(f"{val} %\t ({all_cards[card]} / {miv(card)}) {card}")
+        print(f"({all_cards[card]} / {num_decks}) {card}")
+    """"""
+    ##############################################
+    """
+    Check for decks that don't play a specific card.
+    """
+    #print()
+    #not_played_card = "mox diamond"
+    #for deck in data:
+    #    if not_played_card not in data[deck]:
+    #        print(deck)
+    ###############################################
+
+    #generate_aggregate(["protean hulk", ])
+    #generate_aggregate(["underworld breach", ])
+    #generate_aggregate(["underworld breach", "brain freeze"])
+
+    #print()
+    #def measure(x): return arithmetic_generality(data[x], all_cards, num_decks)
+    #decklist_generality_ranking(data, measure)
+
+    #synergy_increase("pattern of rebirth")
+
+    """
+    x = "protean hulk"
+    base_card = "pattern of rebirth"
+    dcr = deck_rep_by_color(load_database())
+
+    one = num_decks_with_card(x)
+    two = max_inclusion_value(x, dcr, scry)
+    three = num_decks_with_cards(x, base_card)
+    four = miv_dual(x, base_card, dcr, scry)
+
+    print(f"({one}/{two})\t({three}/{four})")
+    """
+
+    #nonland_synergy("underworld breach")
+
+    print()
+    #create_core(["R", "U", "g"])
+    bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
+    #bla = create_core(["W", "U", "B", "R"], ratio=0.41)
+
+    print(bla)

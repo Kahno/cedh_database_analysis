@@ -6,7 +6,7 @@ from flask import json
 from flask import request
 from flask import Response
 
-from analyze import recommend, generality_info, compare
+from analyze import recommend, generality_info, compare, create_core
 from data_cleanup import normalize
 from scraper import parse_decklist_platform
 
@@ -130,6 +130,24 @@ def recommend_cards():
     time.sleep(1)
 
     return Response(fetch_result, status=200, mimetype="application/json")
+
+
+@app.route("/generate_core", methods=["POST"])
+def generate_core():
+    data_json = json.loads(request.data)
+
+    identity = data_json["identity"]
+    raw_ratio = data_json["ratio"]
+
+    if not raw_ratio:
+        result = create_core(identity)
+    else:
+        try:
+            result = create_core(identity, float(raw_ratio))
+        except ValueError:
+            result = "Invalid ratio value specified!"
+
+    return Response(result, status=200, mimetype="application/json")
 
 
 if __name__ == "__main__":

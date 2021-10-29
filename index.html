@@ -168,6 +168,21 @@
                 };
             }
 
+            function coreInformation() {
+                let identity = [];
+                let colorBtns = document.getElementsByClassName("color-btn");
+                for (let i = 0; i < colorBtns.length; i++) {
+                    let curBtn = colorBtns[i];
+                    if (curBtn.classList.contains("active")) {
+                        identity.push(curBtn.getAttribute("name"));
+                    }
+                }
+                return {
+                    "identity": identity,
+                    "ratio": $("#core_ratio").val(),
+                };
+            }
+
             function compareAgainstDDB() {
 
                 let btn = document.getElementById("comp");    
@@ -200,7 +215,7 @@
                     if (this.status == 200) {
                         document.getElementById("result").value = this.response;
 
-                        btn.innerHTML = "Recommend DDB lands";
+                        btn.innerHTML = "Recommend lands";
                         btn.disabled = false;
                     }
                 };
@@ -220,7 +235,7 @@
                     if (this.status == 200) {
                         document.getElementById("result").value = this.response;
 
-                        btn.innerHTML = "Recommend DDB cards";
+                        btn.innerHTML = "Recommend cards";
                         btn.disabled = false;
                     }
                 };
@@ -228,10 +243,31 @@
                 xhr.send(JSON.stringify(decklistPayload()));
             }
 
+            function generateCore() {
+
+                let btn = document.getElementById("core");
+                btn.innerHTML = "Generating core    <span class='spinner-border spinner-border-sm'></span>";
+                btn.disabled = true;
+
+                let xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function () {
+                    if (this.readyState != 4) return;
+                    if (this.status == 200) {
+                        document.getElementById("result").value = this.response;
+
+                        btn.innerHTML = "Generate core";
+                        btn.disabled = false;
+                    }
+                };
+                xhr.open("POST", "/generate_core", true);
+                xhr.send(JSON.stringify(coreInformation()));
+            }
+
             document.getElementById("fetch").addEventListener("click", fetchDecklist);
             document.getElementById("comp").addEventListener("click", compareAgainstDDB);
             document.getElementById("landrec").addEventListener("click", recommendDDBLands);
             document.getElementById("rec").addEventListener("click", recommendDDBCards);
+            document.getElementById("core").addEventListener("click", generateCore);
 
             let colorBtns = document.getElementsByClassName("color-btn");
             for (let i = 0; i < colorBtns.length; i++) {
@@ -264,8 +300,11 @@
                     <li>2) Select color identity by clicking desired color buttons</li>
                     <li>-</li>
                     <li>3a) Click "Compare against DDB" --> displays fetched decklist cards ranked by DDB bias</li>
-                    <li>3b) Click "Recommend DDB lands" --> displays ranked list of land card suggestions</li>
-                    <li>3c) Click "Recommend DDB cards" --> displays ranked list of non-land card suggestions</li>
+                    <li>3b) Click "Recommend lands" --> displays ranked list of land card suggestions</li>
+                    <li>3c) Click "Recommend cards" --> displays ranked list of non-land card suggestions</li>
+                    <li>---</li>
+                    <li style="color:rgb(211, 32, 42)">NEW functionality:</li>
+                    <li>Click "Generate core" --> displays list of core cards for desired color combination</li>
                 </ul>
             </div>
         </div>
@@ -370,11 +409,19 @@
                 </div>
 
                 <div>
-                    <button type="submit" id="landrec" class="btn basic-btn w-100 mb-1">Recommend DDB lands</button>
+                    <button type="submit" id="landrec" class="btn basic-btn w-100 mb-1">Recommend lands</button>
                 </div>
 
                 <div>
-                    <button type="submit" id="rec" class="btn basic-btn w-100">Recommend DDB cards</button>
+                    <button type="submit" id="rec" class="btn basic-btn w-100 mb-1">Recommend cards</button>
+                </div>
+
+                <div>
+                    <button type="submit" id="core" class="btn basic-btn w-100 mb-1">Generate core</button>
+                </div>
+
+                <div>
+                    <input style="font-family: monospace; font-size: small; background-color: #c7ecee;" type="text" class="form-control" id="core_ratio" placeholder="Core ratio (default 0.75)">
                 </div>
 
             </div>
