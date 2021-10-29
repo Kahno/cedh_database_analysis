@@ -647,8 +647,8 @@ if __name__ == "__main__":
         filter(
             lambda x: (
                 cif(x) and
-                not_basic_land(x) and
-                "Land" in scry[x]["type_line"]
+                not_basic_land(x) #and
+                #"Land" in scry[x]["type_line"]
             ),
             all_cards
         ),
