@@ -22,7 +22,7 @@ def validate_color_combination(colors):
     for color in colors:
         if color not in valid_colors:
             raise argparse.ArgumentTypeError(f"Invalid color: {color}")
-    return list("".join(colors))
+    return ''.join(colors)
 
 class JSONObject:
     def __init__(self, **kwargs):
@@ -49,13 +49,13 @@ class JSONObject:
 
 RATE = 120/60 #[s]
 
-DEFAULT_QUERY = {
+DEFAULT_QUERY = JSONObject(**{
     'standing': {'$lte': 16},
     'colorID': 'WUBRG',
     'tourney_filter': {
         'size': {'$gte': 64}
     }
-}
+})
 
 def str2timestamp(s:str) -> int:
     '''
@@ -95,6 +95,8 @@ def generate_query(args):
             data['entries']['$gte'] = args.tentries.gte
     if args.color is not None:
         data['colorID'] = args.color
+    else:
+        data['colorID'] = 'null'
     return JSONObject(**data)
 
 def get_entries(query):
@@ -194,8 +196,12 @@ if __name__ == '__main__':
     org_query = decode_url_query(url)
     #print(org_query)
     query = generate_query(args)
+
+    print(DEFAULT_QUERY)
     print(query)
-    entries = get_entries(org_query)
+
+    default_entries = get_entries(DEFAULT_QUERY)
+    entries = get_entries(query)
 
     #print(entries)
     pass
