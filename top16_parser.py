@@ -194,15 +194,16 @@ if __name__ == '__main__':
                 setattr(args, arg, opt_args)
     url = "https://edhtop16.com/?tourney_filter__size__%24gte=64&tourney_filter__dateCreated__%24gte=1672527600&standing__%24lte=16&entries__%24gte=20&colorID=null"
     org_query = decode_url_query(url)
-    #print(org_query)
+    print(org_query)
     query = generate_query(args)
 
-    print(DEFAULT_QUERY)
+    #print(DEFAULT_QUERY)
     print(query)
 
-    default_entries = get_entries(DEFAULT_QUERY)
+    #default_entries = get_entries(DEFAULT_QUERY)
     entries = get_entries(query)
+    entries = get_entries(org_query)
 
-    #print(entries)
+    print(entries)
     pass
 
