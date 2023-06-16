@@ -31,14 +31,16 @@ DEFAULT_QUERY = {
 
 PARSER_CACHE = {}
 
+PARSER_CACHE_FILE = 'parser_cache.json'
+
 try:
-    with open('cache.json', 'r') as f:
+    with open(PARSER_CACHE_FILE, 'r') as f:
         PARSER_CACHE = json.load(f)
         print('Loaded {} decks from cache'.format(len(PARSER_CACHE)))
 except:
     pass
 
-atexit.register(lambda: json.dump(PARSER_CACHE, open('cache.json', 'w')))
+atexit.register(lambda: json.dump(PARSER_CACHE, open(PARSER_CACHE_FILE, 'w')))
 
 # Custom validation function for color combinations
 def validate_color_combination(colors):
