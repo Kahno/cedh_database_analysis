@@ -9,9 +9,24 @@ from enum import Enum
 from datetime import datetime, date
 import urllib.parse
 
+from scraper import parse_decklist_platform
+
+from tqdm import tqdm
+
 
 base_url = "https://edhtop16.com/api/"
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
+
+MOXFIELD_RATE_LIMIT = 1 # [s]
+RATE = 120/60 #[s]
+
+DEFAULT_QUERY = {
+    'standing': {'$lte': 16},
+    'colorID': 'WUBRG',
+    'tourney_filter': {
+        'size': {'$gte': 64}
+    }
+}
 
 # Custom validation function for color combinations
 def validate_color_combination(colors):
@@ -38,6 +53,10 @@ class JSONObject:
             for k,v in self.__dict__.items()
         }
 
+    @property
+    def query_json(self):
+        return json.loads(json.dumps(self.json).replace('gte', '$gte').replace('lte', '$lte'))
+
     def __repr__(self):
         '''return '\n'.join(
             '{}:{}'.format(
@@ -45,17 +64,8 @@ class JSONObject:
             )
             for k,v in self.__dict__.items()
         )'''
-        return json.dumps(self.json, indent=4)
-
-RATE = 120/60 #[s]
-
-DEFAULT_QUERY = JSONObject(**{
-    'standing': {'$lte': 16},
-    'colorID': 'WUBRG',
-    'tourney_filter': {
-        'size': {'$gte': 64}
-    }
-})
+        x = self.json
+        return json.dumps(x, indent=4)
 
 def str2timestamp(s:str) -> int:
     '''
@@ -63,50 +73,107 @@ def str2timestamp(s:str) -> int:
     '''
     return int(datetime.strptime(s, '%d%m%Y').timestamp())
 
-
 def generate_query(args):
     data = {}
     if args.tstanding is not None:
         data['standing'] = {}
         if args.tstanding.lte is not None:
-            data['standing']['$lte'] = args.tstanding.lte
+            data['standing']['lte'] = args.tstanding.lte
         if args.tstanding.gte is not None:
-            data['standing']['$gte'] = args.tstanding.gte
+            data['standing']['gte'] = args.tstanding.gte
 
     if args.tsize is not None or args.tdate is not None:
         data['tourney_filter'] = {}
         if args.tsize is not None:
             data['tourney_filter']['size'] = {}
             if args.tsize.lte is not None:
-                data['tourney_filter']['size']['$lte'] = args.tsize.lte
+                data['tourney_filter']['size']['lte'] = args.tsize.lte
             if args.tsize.gte is not None:
-                data['tourney_filter']['size']['$gte'] = args.tsize.gte
+                data['tourney_filter']['size']['gte'] = args.tsize.gte
         if args.tdate is not None:
             data['tourney_filter']['dateCreated'] = {}
             if args.tdate.lte is not None:
-                data['tourney_filter']['dateCreated']['$lte'] = args.tdate.lte
+                data['tourney_filter']['dateCreated']['lte'] = args.tdate.lte
             if args.tdate.gte is not None:
-                data['tourney_filter']['dateCreated']['$gte'] = args.tdate.gte
+                data['tourney_filter']['dateCreated']['gte'] = args.tdate.gte
     if args.tentries is not None:
         data['entries'] = {}
         if args.tentries.lte is not None:
-            data['entries']['$lte'] = args.tentries.lte
+            data['entries']['lte'] = args.tentries.lte
         if args.tentries.gte is not None:
-            data['entries']['$gte'] = args.tentries.gte
+            data['entries']['gte'] = args.tentries.gte
     if args.color is not None:
         data['colorID'] = args.color
-    else:
-        data['colorID'] = 'null'
+    #else:
+    #    data['colorID'] = 'null'
     return JSONObject(**data)
 
 def get_entries(query):
-    data = json.loads(requests.post(base_url + 'req', json=query.json, headers=headers).text)
-    entries = [JSONObject(**entry) for entry in data]
-    unique_commanders = set(x.commander for x in entries)
+    data = json.loads(requests.post(base_url + 'req', json=query.query_json, headers=headers).text)
+    data = [entry for entry in data]
+    entries = {}
 
-    return entries
+    for entry in data:
+        if entry['commander'] not in entries.keys():
+            entries[entry['commander']] = {
+                'entries': [],
+                'decklists': set(),
+                'color': entry['colorID'],
+                'deck_type': entry['commander'],
+            }
+
+        entries[entry['commander']]['entries'].append(entry)
+        entries[entry['commander']]['decklists'].add(entry['decklist'])
 
 
+    if query.entries is not None:
+        del_keys = set()
+        lte = hasattr(query.entries, 'lte')
+        gte = hasattr(query.entries, 'gte')
+        if lte or gte:
+            for key, val in entries.items():
+                if lte and len(val['entries']) > query.entries.lte:
+                    del_keys.add(key)
+                if gte and len(val['entries']) < query.entries.gte:
+                    del_keys.add(key)
+        for key in del_keys:
+            del entries[key]
+
+    for entry in entries:
+        entries[entry]['decklists'] = list(entries[entry]['decklists'])
+
+    return JSONObject(**entries)
+
+def build_master_json(data):
+    master_json = {}
+    for commander, commander_data in data.__dict__.items():
+        if commander_data.color not in master_json.keys():
+            master_json[commander_data.color] = {}
+        if commander not in master_json[commander_data.color].keys():
+            master_json[commander_data.color][commander] = {}
+        for entry in commander_data.entries:
+            entry_name = '{}|{}'.format(entry['name'], entry['tournamentName'])
+            master_json[commander_data.color][commander][entry_name] = entry['decklist']
+
+    return master_json
+
+def parse_decklists(master_json):
+    pbar_1 = tqdm(master_json.items(), desc='Color', leave=False)
+    for color, commanders in pbar_1:
+        pbar_1.set_description('{}'.format(color))
+        pbar_2 = tqdm(commanders.items(), desc='Commander', leave=False)
+        for commander, entries in pbar_2:
+            pbar_2.set_description('{}'.format(commander))
+            pbar_3 = tqdm(entries.items(), desc='Entry', leave=False)
+            for entry, url in pbar_3:
+                pbar_3.set_description('{}'.format(entry))
+                try:
+                    decklist = parse_decklist_platform(url, wait_time=1)
+                    master_json[color][commander][entry] = decklist
+                except Exception as e:
+                    print(str(e))
+                    #del master_json[color][commander][entry]
+    return master_json
 
 
 def decode_url_query(url):
@@ -120,18 +187,27 @@ def decode_url_query(url):
     for key, value in urllib.parse.parse_qs(URL.split("?")[1]).items():
         key = key.split("__")
         if len(key) == 1:
-            query[key[0]] = value[0]
+            try:
+                query[key[0]] = int(value[0])
+            except ValueError:
+                query[key[0]] = value[0]
         elif len(key) == 2:
             if key[0] not in query:
                 query[key[0]] = {}
-            query[key[0]][key[1]] = value[0]
+            try:
+                query[key[0]][key[1]] = int(value[0])
+            except ValueError:
+                query[key[0]][key[1]] = value[0]
         elif len(key) == 3:
             if key[0] not in query:
                 query[key[0]] = {}
             if key[1] not in query[key[0]]:
                 query[key[0]][key[1]] = {}
             #TODO: Correct types
-            query[key[0]][key[1]][key[2]] = int(value[0]) if value[0].isdigit() else value[0]
+            try:
+                query[key[0]][key[1]][key[2]] = int(value[0])
+            except ValueError:
+                query[key[0]][key[1]][key[2]] = value[0]
 
 
     return JSONObject(**query)
@@ -169,6 +245,9 @@ if __name__ == '__main__':
     parser.add_argument('--color', type=validate_color_combination,
                         help='MTG color(s) (W - White, U - Blue, B - Black, R - Red, G - Green, C - Colorless)')
 
+    parser.add_argument('--output', type=str, default='top16.json',
+                        help='Output file name (default: top16.json)')
+
 
 
     # Parse the command-line arguments
@@ -192,18 +271,22 @@ if __name__ == '__main__':
                 opt_args = option_parser.parse_args(getattr(args, arg))
 
                 setattr(args, arg, opt_args)
-    url = "https://edhtop16.com/?tourney_filter__size__%24gte=64&tourney_filter__dateCreated__%24gte=1672527600&standing__%24lte=16&entries__%24gte=20&colorID=null"
-    org_query = decode_url_query(url)
-    print(org_query)
+    #url = "https://edhtop16.com/?tourney_filter__size__%24gte=64&tourney_filter__dateCreated__%24gte=1672527600&standing__%24lte=16&entries__%24gte=10"
+    #query = decode_url_query(url)
+    #entries = get_entries(query)
+    #print(query)
+    #print(entries)
+
+
     query = generate_query(args)
+    data = get_entries(query)
 
-    #print(DEFAULT_QUERY)
-    print(query)
+    #print(query)
+    #print(entries)
+    master_json = build_master_json(data)
+    parse_decklists(master_json)
 
-    #default_entries = get_entries(DEFAULT_QUERY)
-    entries = get_entries(query)
-    entries = get_entries(org_query)
-
-    print(entries)
+    with open(args.output, 'w') as f:
+        json.dump(master_json, f) #, indent=4 )
     pass
 
