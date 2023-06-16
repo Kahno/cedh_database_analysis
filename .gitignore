@@ -3,3 +3,5 @@ __pycache__/
 cedh-env/
 *.ipynb
 .vscode
+venv
+parser_cache.json

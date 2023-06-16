@@ -117,6 +117,9 @@ def parse_moxfield(url):
     response = requests.get(api_string, headers=HEADERS, timeout=5)
     result = response.json()
     output_decklist = []
+
+    if response.status_code != 200:
+        raise Exception(f"Error: {response.status_code}")
     for card in result["mainboard"]:
         output_decklist += int(result["mainboard"][card]["quantity"]) * [card]
 

@@ -13,12 +13,13 @@ from scraper import parse_decklist_platform
 
 from tqdm import tqdm
 
+import atexit
+
 
 base_url = "https://edhtop16.com/api/"
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
-MOXFIELD_RATE_LIMIT = 1 # [s]
-RATE = 120/60 #[s]
+MOXFIELD_RATE_LIMIT = 0 # [s]
 
 DEFAULT_QUERY = {
     'standing': {'$lte': 16},
@@ -27,6 +28,17 @@ DEFAULT_QUERY = {
         'size': {'$gte': 64}
     }
 }
+
+PARSER_CACHE = {}
+
+try:
+    with open('cache.json', 'r') as f:
+        PARSER_CACHE = json.load(f)
+        print('Loaded {} decks from cache'.format(len(PARSER_CACHE)))
+except:
+    pass
+
+atexit.register(lambda: json.dump(PARSER_CACHE, open('cache.json', 'w')))
 
 # Custom validation function for color combinations
 def validate_color_combination(colors):
@@ -126,7 +138,7 @@ def get_entries(query):
         entries[entry['commander']]['decklists'].add(entry['decklist'])
 
 
-    if query.entries is not None:
+    if hasattr(data, 'entries'):
         del_keys = set()
         lte = hasattr(query.entries, 'lte')
         gte = hasattr(query.entries, 'gte')
@@ -168,13 +180,25 @@ def parse_decklists(master_json):
             for entry, url in pbar_3:
                 pbar_3.set_description('{}'.format(entry))
                 try:
-                    decklist = parse_decklist_platform(url, wait_time=1)
+                    decklist = None
+                    if url in PARSER_CACHE.keys():
+                        decklist = PARSER_CACHE[url]['decklist']
+                    if decklist is None:
+                        decklist = parse_decklist_platform(url, wait_time=1)
+                        PARSER_CACHE[url] = {
+                            'decklist': decklist,
+                            'time': time.time()
+                        }
+
                     master_json[color][commander][entry] = decklist
                 except Exception as e:
-                    print(str(e))
-                    #del master_json[color][commander][entry]
+                    #clear TQDM buffer
+                    #print('\r{} parsing decklist: {}'.format(e, url), flush=True)
+                    PARSER_CACHE[url] = {
+                        'decklist': None,
+                        'time': time.time()
+                    }
     return master_json
-
 
 def decode_url_query(url):
     '''
