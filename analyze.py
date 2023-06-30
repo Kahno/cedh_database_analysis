@@ -743,7 +743,7 @@ def num_decks_with_cards(x, y, decks=None):
 
 def create_core(colors, ratio=0.75):
     colors = [x.lower() for x in colors]
-    color_code = "".join([x for x in "wubrg" if x in colors])
+    color_code = "".join([x for x in "wubrg" if x in colors]).upper()
     data_complex = load_database()
 
     aggregate = dict()
