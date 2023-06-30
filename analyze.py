@@ -7,7 +7,7 @@ import numpy as np
 from sklearn.cluster import DBSCAN
 
 
-MASTER_JSON_FILE = "json_data/cedh_decklists.json"
+MASTER_JSON_FILE = "/home/even/Dev/py3/cedh_database_analysis/json_data/top16.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
 SCRYFALL_DICTIONARY = "json_data/scryfall_card_dictionary.json"
@@ -36,6 +36,7 @@ def load_database():
     with open(MASTER_JSON_FILE, "r") as f:
         data = json.loads(f.read())
 
+    del data['N/A']
     return data
 
 
@@ -205,7 +206,8 @@ def ci_filter(ci, scryfall_dict):
     provided color identity
     """
 
-    def sc(x): return scryfall_dict[x]["color_identity"]
+    def sc(x):
+        return scryfall_dict[x]["color_identity"]
 
     return lambda x: not sc(x) or all(c in ci for c in sc(x))
 
@@ -234,6 +236,8 @@ def summary(dataset, output=False):
     for color in dataset:
         for deck_type in dataset[color]:
             for deck in dataset[color][deck_type]:
+                if not isinstance(dataset[color][deck_type][deck], list):
+                    continue
                 for card in dataset[color][deck_type][deck]:
                     if card not in all_cards:
                         all_cards[card] = 0
@@ -628,7 +632,7 @@ def generate_aggregate(any_base_cards):
 
 def synergy_increase(base_card):
     data = load_normalized()
-    scry = load_lite() 
+    scry = load_lite()
     all_cards, _ = dataset_summary(data)
     dcr = deck_rep_by_color(load_database())
     decks = data.values()
@@ -672,7 +676,7 @@ def nonland_synergy(x):
     data = load_normalized()
     database = load_database()
 
-    scry = load_lite() 
+    scry = load_lite()
     all_cards, _ = dataset_summary(data)
     dcr = deck_rep_by_color(database)
     deck_ci = db_ci_info(database)
@@ -691,12 +695,12 @@ def nonland_synergy(x):
 
         # decks with y
         a = num_decks_with_card(y, datavals)
-        
+
         # decks with y ci
         b = max_inclusion_value(y, dcr, scry)
 
         # decks with base_card and y
-        c = sum(y in data[deck] for deck in decks_with_base_card) 
+        c = sum(y in data[deck] for deck in decks_with_base_card)
 
         # decks with base_card and y ci
         d = sum(yci.issubset(deck_ci[deck]) for deck in decks_with_base_card)
@@ -741,7 +745,7 @@ def create_core(colors, ratio=0.75):
     colors = [x.lower() for x in colors]
     color_code = "".join([x for x in "wubrg" if x in colors])
     data_complex = load_database()
-    
+
     aggregate = dict()
     num_decks = 0
 

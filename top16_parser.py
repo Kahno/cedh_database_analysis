@@ -95,7 +95,6 @@ def generate_query(args):
             data['standing']['lte'] = args.tstanding.lte
         if args.tstanding.gte is not None:
             data['standing']['gte'] = args.tstanding.gte
-
     if args.tsize is not None or args.tdate is not None:
         data['tourney_filter'] = {}
         if args.tsize is not None:

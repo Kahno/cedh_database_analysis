@@ -5,3 +5,5 @@ cedh-env/
 .vscode
 venv
 parser_cache.json
+json_data/scryfall_data.json
+json_data/top16.json

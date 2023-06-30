@@ -1,8 +1,49 @@
 import json
+import os
+import requests
 
 from analyze import (
     normalize, flatten, load_database, load_scryfall, load_lite, summary
 )
+from tqdm import tqdm
+
+def load_scry_data():
+    fpath = 'json_data/scryfall_data.json'
+    if not os.path.exists(fpath):
+        #download bulk data from scryfall
+        #get url for download through scryfall api
+
+        data = requests.get('https://api.scryfall.com/bulk-data').json()
+        url = None
+        for dataset in data['data']:
+            if dataset['type'] == 'oracle_cards':
+                url = dataset['download_uri']
+                break
+        if url is None:
+            raise Exception('Could not find oracle_cards dataset')
+        #download json file from link and save it to
+        response = requests.get(url, stream=True)
+        total_size_in_bytes = int(response.headers.get('content-length', 0))
+        block_size = 1024 #1 Kibibyte
+        progress_bar = tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True)
+        with open(fpath, 'wb') as file:
+            for data in response.iter_content(block_size):
+                progress_bar.update(len(data))
+                file.write(data)
+        progress_bar.close()
+        if total_size_in_bytes != 0 and progress_bar.n != total_size_in_bytes:
+            print("ERROR, something went wrong")
+
+    with open(fpath, "r") as f:
+        data = json.loads(f.read())
+
+    data_dict = {
+        c['name']: c
+        for c
+        in tqdm(data)
+    }
+
+    return data_dict
 
 
 def lightweight_scryfall_dict():
@@ -31,7 +72,8 @@ def normalized_decklists():
     normalized_decks = {}
 
     for deck in db:
-        normalized_decks[deck] = [normalize(card) for card in db[deck]]
+        if isinstance(db[deck], list):
+            normalized_decks[deck] = [normalize(card) for card in db[deck]]
 
     with open("json_data/normalized_decklists.json", "w") as f:
         json.dump(normalized_decks, f)
@@ -81,19 +123,24 @@ def fix_land_color_identity():
 
 if __name__ == "__main__":
 
-    """
     dataset = load_database()
     all_cards, num_decks = summary(dataset)
-    card_dictionary = {}
+    #card_dictionary = {}
 
     # loop over all found cards on DDB and add their info to master json
+
+    card_dictionary = load_scry_data()
+    card_dictionary = {k:card_dictionary[k] for k in all_cards.keys()}
+
+    with open("json_data/scryfall_card_dictionary.json", "w") as f:
+        json.dump(card_dictionary, f)
 
     import requests
     import time
 
     print(f"Number of all cards: {len(all_cards)}\n")
 
-    try:
+    '''try:
         for i, card in enumerate(all_cards.keys()):
             print(f"{i+1} Fetching card: {card}")
 
@@ -102,7 +149,7 @@ if __name__ == "__main__":
             for _ in range(3):
                 try:
                     response = requests.get(
-                        f"https://api.scryfall.com/cards/named?exact={card}", 
+                        f"https://api.scryfall.com/cards/named?exact={card}",
                         timeout=1
                     )
                     break
@@ -116,7 +163,7 @@ if __name__ == "__main__":
             time.sleep(0.3)
     except Exception:
         with open("json_data/card_dictionary.json", "w") as f:
-            json.dump(card_dictionary, f)
+            json.dump(card_dictionary, f)'''
 
     lightweight_scryfall_dict()
     print("Lightweight scryfall DONE")
@@ -125,10 +172,11 @@ if __name__ == "__main__":
     print("Normalized decklists DONE")
 
     fix_land_color_identity()
-    """
+
+
     #######################################################################
 
-    """
+    '''
     dataset = load_database()
     all_cards, num_decks = summary(dataset)
 
@@ -155,7 +203,7 @@ if __name__ == "__main__":
             for _ in range(3):
                 try:
                     response = requests.get(
-                        f"https://api.scryfall.com/cards/named?exact={card}", 
+                        f"https://api.scryfall.com/cards/named?exact={card}",
                         timeout=1
                     )
                     break
@@ -177,4 +225,4 @@ if __name__ == "__main__":
     if not saved:
         with open("json_data/card_dictionary.json", "w") as f:
             json.dump(data, f)
-    """
+    '''
