@@ -769,8 +769,7 @@ def create_core(colors, ratio=0.75):
 
     return "\n".join([f"1 {c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
 
-
-def create_commander_core(commander, ratio=0.75, n=None):
+def load_commander_decks(commander):
     scry = load_scryfall()
     commanders = commander.split(" / ")
     for i, cmdr in enumerate(commanders):
@@ -804,6 +803,10 @@ def create_commander_core(commander, ratio=0.75, n=None):
             data.update(data_complex[cid][key2])
     else:
         raise Exception(f"Invalid number of commanders: {n_commanders}")
+    return data
+
+def create_commander_core(commander, ratio=0.75, n=None):
+    data = load_commander_decks(commander)
     num_decks = len(data)
 
     aggregate = {}
@@ -823,15 +826,48 @@ def create_commander_core(commander, ratio=0.75, n=None):
 
     return "\n".join([f"{aggregate[c]/num_decks:.2f}\t{c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
 
+
 def recommend_commander_replacements(decklist):
     pass
 
-def recommend_commander_adds(decklist):
+def recommend_commander_adds(decklist, commander, n=20):
     pass
 
-def recommend_commander_cuts(decklist):
-    pass
+def recommend_commander_cuts(decklist, commander, n=20):
+    flat_dataset = load_commander_decks(commander)
+    #flat_dataset = load_normalized()
+    all_cards, num_decks = dataset_summary(flat_dataset)
+    df = create_dataframe(flat_dataset, all_cards)
+    decklist_vec = deck2vec(df, decklist)
 
+    master = {}
+    for deck in flat_dataset:
+        cur_filtered = filter(lambda x: x in decklist.values(), flat_dataset[deck])
+        cur_score = similarity(df, decklist_vec, deck)
+
+        for card in cur_filtered:
+            if card not in master:
+                master[card] = []
+            #TODO: Looks like these cards should be normalized?
+            master[card].append(cur_score)
+
+    def measure(x):
+        if x not in master:
+            return 0
+        return np.power(np.prod(master[x]), 1 / len(master[x]))
+
+    output = ""
+
+    for i, card in enumerate(sorted(decklist, key=measure)):
+        numbering = f"{i+1}.".ljust(4, " ")
+        card_name = f"{decklist[card]}".ljust(40, " ")
+
+        output += (
+            f"{numbering}{card_name} "
+            f"(DS: {measure(card):.3f})\n"
+        )
+
+    return output
 
 if __name__ == "__main__":
 
@@ -913,9 +949,21 @@ if __name__ == "__main__":
     #bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
     #bla = create_core(["W", "U", "B", "R"], ratio=0.41)
 
-    data = create_commander_core("Kraum, Ludevic's Opus / Tymna the Weaver", ratio=0.75, n=100)
-    print(data)
-    data = create_commander_core("Tivit, Seller of Secrets", ratio=0.75)
-    print(data)
+    #data = create_commander_core("Kraum, Ludevic's Opus / Tymna the Weaver", ratio=0.75, n=100)
+    #data = create_commander_core("Tivit, Seller of Secrets", ratio=0.75)
+    #print(data)
 
-    #print(bla)
+    #read decklist from decklist.txt file
+    with open("decklist.txt", "r") as f:
+        decklist = f.read()
+
+    clean_decklist = {}
+
+    for card in decklist.split("\n"):
+        if card:
+            clean_card = " ".join(card.split()[1:])
+            clean_decklist[normalize(clean_card)] = clean_card
+
+    recommend_commander_cuts(clean_decklist, "Tivit, Seller of Secrets", n=20)
+
+
