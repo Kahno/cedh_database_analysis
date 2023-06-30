@@ -772,17 +772,43 @@ def create_core(colors, ratio=0.75):
 
 def create_commander_core(commander, ratio=0.75, n=None):
     scry = load_scryfall()
-    assert commander in scry, f"{commander} not found in scryfall"
-    commander = JSONObject(**scry[commander])
-    cid = ''.join([x for x in 'WUBRGC' if x in commander.color_identity])
+    commanders = commander.split(" / ")
+    for i, cmdr in enumerate(commanders):
+        assert cmdr in scry, f"{cmdr} not found in scryfall"
+        commanders[i] = JSONObject(**scry[cmdr])
+
+    color_order = 'WUBRGC'
+    cid = []
+    for color in 'WUBRGC':
+        for commander in commanders:
+            if color in commander.color_identity:
+                cid += color
+                break
+    cid = ''.join(cid)
 
     data_complex = load_database()
 
-    aggregate = dict()
-    num_decks = len(data_complex[cid][commander.name])
+    n_commanders = len(commanders)
 
-    for deck in data_complex[cid][commander.name]:
-        for card in data_complex[cid][commander.name][deck]:
+    if n_commanders == 1:
+        data = data_complex[cid][commander.name]
+    elif n_commanders > 1:
+        key1 = f"{commanders[0].name} / {commanders[1].name}"
+        key2 = f"{commanders[1].name} / {commanders[0].name}"
+        data = {}
+        if key1 not in data_complex[cid] and key2 not in data_complex[cid]:
+            raise Exception(f"Commander pair {key1} not found in database")
+        if key1 in data_complex[cid]:
+            data.update(data_complex[cid][key1])
+        if key2 in data_complex[cid]:
+            data.update(data_complex[cid][key2])
+    else:
+        raise Exception(f"Invalid number of commanders: {n_commanders}")
+    num_decks = len(data)
+
+    aggregate = {}
+    for deck in data:
+        for card in data[deck]:
             if normalize(card) in BASIC_LANDS:
                 continue
 
@@ -887,7 +913,8 @@ if __name__ == "__main__":
     #bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
     #bla = create_core(["W", "U", "B", "R"], ratio=0.41)
 
-    #data = create_commander_core("Atraxa, Grand Unifier", ratio=0.75, n=100)
+    data = create_commander_core("Kraum, Ludevic's Opus / Tymna the Weaver", ratio=0.75, n=100)
+    print(data)
     data = create_commander_core("Tivit, Seller of Secrets", ratio=0.75)
     print(data)
 
