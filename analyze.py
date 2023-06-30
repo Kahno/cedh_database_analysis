@@ -6,8 +6,10 @@ import numpy as np
 
 from sklearn.cluster import DBSCAN
 
+from top16_parser import JSONObject
 
-MASTER_JSON_FILE = "/home/even/Dev/py3/cedh_database_analysis/json_data/top16.json"
+
+MASTER_JSON_FILE = "json_data/top16.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
 SCRYFALL_DICTIONARY = "json_data/scryfall_card_dictionary.json"
@@ -768,6 +770,43 @@ def create_core(colors, ratio=0.75):
     return "\n".join([f"1 {c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
 
 
+def create_commander_core(commander, ratio=0.75, n=None):
+    scry = load_scryfall()
+    assert commander in scry, f"{commander} not found in scryfall"
+    commander = JSONObject(**scry[commander])
+    cid = ''.join([x for x in 'WUBRGC' if x in commander.color_identity])
+
+    data_complex = load_database()
+
+    aggregate = dict()
+    num_decks = len(data_complex[cid][commander.name])
+
+    for deck in data_complex[cid][commander.name]:
+        for card in data_complex[cid][commander.name][deck]:
+            if normalize(card) in BASIC_LANDS:
+                continue
+
+            if card not in aggregate:
+                aggregate[card] = 0
+
+            aggregate[card] += 1
+    if n is None:
+        core = [c for c in aggregate if aggregate[c] >= ratio * num_decks]
+    else:
+        core = sorted(aggregate, key=lambda x: aggregate[x], reverse=True)[0:n]
+
+    return "\n".join([f"{aggregate[c]/num_decks:.2f}\t{c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
+
+def recommend_commander_replacements(decklist):
+    pass
+
+def recommend_commander_adds(decklist):
+    pass
+
+def recommend_commander_cuts(decklist):
+    pass
+
+
 if __name__ == "__main__":
 
     data = load_normalized()
@@ -784,7 +823,7 @@ if __name__ == "__main__":
 
     def miv(x): return max_inclusion_value(x, ddb_color_rep, scry)
 
-    """"""
+    """
     for card in sorted(
         filter(
             lambda x: (
@@ -806,7 +845,7 @@ if __name__ == "__main__":
         #val = round(100 * all_cards[card] / miv(card), 2)
         #print(f"{val} %\t ({all_cards[card]} / {miv(card)}) {card}")
         print(f"({all_cards[card]} / {num_decks}) {card}")
-    """"""
+    """
     ##############################################
     """
     Check for decks that don't play a specific card.
@@ -843,9 +882,13 @@ if __name__ == "__main__":
 
     #nonland_synergy("underworld breach")
 
-    print()
+
     #create_core(["R", "U", "g"])
-    bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
+    #bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
     #bla = create_core(["W", "U", "B", "R"], ratio=0.41)
 
-    print(bla)
+    #data = create_commander_core("Atraxa, Grand Unifier", ratio=0.75, n=100)
+    data = create_commander_core("Tivit, Seller of Secrets", ratio=0.75)
+    print(data)
+
+    #print(bla)
