@@ -2,3 +2,8 @@ __pycache__/
 .ipynb_checkpoints/
 cedh-env/
 *.ipynb
+.vscode
+venv
+parser_cache.json
+json_data/scryfall_data.json
+json_data/top16.json

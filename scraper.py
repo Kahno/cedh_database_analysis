@@ -98,7 +98,7 @@ def parse_decklist_platform(url, wait_time=0):
     Determines decklist platform and chooses decklist parsing accordingly.
     """
 
-    print(f"Attempting to parse: {url}")
+    #print(f"Attempting to parse: {url}")
 
     for platform_name in DECKLIST_PLATFORM_PARSERS:
         if platform_name in url:
@@ -107,7 +107,7 @@ def parse_decklist_platform(url, wait_time=0):
             return decklist
 
     time.sleep(wait_time)
-    print("No matching platform found! Returning empty decklist")
+    #print("No matching platform found! Returning empty decklist")
     return []
 
 
@@ -117,6 +117,9 @@ def parse_moxfield(url):
     response = requests.get(api_string, headers=HEADERS, timeout=5)
     result = response.json()
     output_decklist = []
+
+    if response.status_code != 200:
+        raise Exception(f"Error: {response.status_code}")
     for card in result["mainboard"]:
         output_decklist += int(result["mainboard"][card]["quantity"]) * [card]
 
@@ -298,8 +301,8 @@ DECKLIST_PLATFORM_PARSERS = {
 
 
 if __name__ == "__main__":
-    # parse(URL)
+    parse(URL)
     # safe_parse(URL)
     # create_master_json(URL)
 
-    parse_via_dict("deck_dict.json")
+    #parse_via_dict("deck_dict.json")

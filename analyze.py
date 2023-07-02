@@ -6,8 +6,10 @@ import numpy as np
 
 from sklearn.cluster import DBSCAN
 
+from top16_parser import JSONObject
 
-MASTER_JSON_FILE = "json_data/cedh_decklists.json"
+
+MASTER_JSON_FILE = "json_data/top16.json"
 NORM_MASTER_JSON_FILE = "json_data/normalized_decklists.json"
 
 SCRYFALL_DICTIONARY = "json_data/scryfall_card_dictionary.json"
@@ -36,6 +38,7 @@ def load_database():
     with open(MASTER_JSON_FILE, "r") as f:
         data = json.loads(f.read())
 
+    del data['N/A']
     return data
 
 
@@ -205,7 +208,8 @@ def ci_filter(ci, scryfall_dict):
     provided color identity
     """
 
-    def sc(x): return scryfall_dict[x]["color_identity"]
+    def sc(x):
+        return scryfall_dict[x]["color_identity"]
 
     return lambda x: not sc(x) or all(c in ci for c in sc(x))
 
@@ -234,6 +238,8 @@ def summary(dataset, output=False):
     for color in dataset:
         for deck_type in dataset[color]:
             for deck in dataset[color][deck_type]:
+                if not isinstance(dataset[color][deck_type][deck], list):
+                    continue
                 for card in dataset[color][deck_type][deck]:
                     if card not in all_cards:
                         all_cards[card] = 0
@@ -628,7 +634,7 @@ def generate_aggregate(any_base_cards):
 
 def synergy_increase(base_card):
     data = load_normalized()
-    scry = load_lite() 
+    scry = load_lite()
     all_cards, _ = dataset_summary(data)
     dcr = deck_rep_by_color(load_database())
     decks = data.values()
@@ -672,7 +678,7 @@ def nonland_synergy(x):
     data = load_normalized()
     database = load_database()
 
-    scry = load_lite() 
+    scry = load_lite()
     all_cards, _ = dataset_summary(data)
     dcr = deck_rep_by_color(database)
     deck_ci = db_ci_info(database)
@@ -691,12 +697,12 @@ def nonland_synergy(x):
 
         # decks with y
         a = num_decks_with_card(y, datavals)
-        
+
         # decks with y ci
         b = max_inclusion_value(y, dcr, scry)
 
         # decks with base_card and y
-        c = sum(y in data[deck] for deck in decks_with_base_card) 
+        c = sum(y in data[deck] for deck in decks_with_base_card)
 
         # decks with base_card and y ci
         d = sum(yci.issubset(deck_ci[deck]) for deck in decks_with_base_card)
@@ -739,9 +745,9 @@ def num_decks_with_cards(x, y, decks=None):
 
 def create_core(colors, ratio=0.75):
     colors = [x.lower() for x in colors]
-    color_code = "".join([x for x in "wubrg" if x in colors])
+    color_code = "".join([x for x in "wubrg" if x in colors]).upper()
     data_complex = load_database()
-    
+
     aggregate = dict()
     num_decks = 0
 
@@ -763,6 +769,105 @@ def create_core(colors, ratio=0.75):
 
     return "\n".join([f"1 {c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
 
+def load_commander_decks(commander):
+    scry = load_scryfall()
+    commanders = commander.split(" / ")
+    for i, cmdr in enumerate(commanders):
+        assert cmdr in scry, f"{cmdr} not found in scryfall"
+        commanders[i] = JSONObject(**scry[cmdr])
+
+    color_order = 'WUBRGC'
+    cid = []
+    for color in 'WUBRGC':
+        for commander in commanders:
+            if color in commander.color_identity:
+                cid += color
+                break
+    cid = ''.join(cid)
+
+    data_complex = load_database()
+
+    n_commanders = len(commanders)
+
+    if n_commanders == 1:
+        data = data_complex[cid][commander.name]
+    elif n_commanders > 1:
+        key1 = f"{commanders[0].name} / {commanders[1].name}"
+        key2 = f"{commanders[1].name} / {commanders[0].name}"
+        data = {}
+        if key1 not in data_complex[cid] and key2 not in data_complex[cid]:
+            raise Exception(f"Commander pair {key1} not found in database")
+        if key1 in data_complex[cid]:
+            data.update(data_complex[cid][key1])
+        if key2 in data_complex[cid]:
+            data.update(data_complex[cid][key2])
+    else:
+        raise Exception(f"Invalid number of commanders: {n_commanders}")
+    return data
+
+def create_commander_core(commander, ratio=0.75, n=None):
+    data = load_commander_decks(commander)
+    num_decks = len(data)
+
+    aggregate = {}
+    for deck in data:
+        for card in data[deck]:
+            if normalize(card) in BASIC_LANDS:
+                continue
+
+            if card not in aggregate:
+                aggregate[card] = 0
+
+            aggregate[card] += 1
+    if n is None:
+        core = [c for c in aggregate if aggregate[c] >= ratio * num_decks]
+    else:
+        core = sorted(aggregate, key=lambda x: aggregate[x], reverse=True)[0:n]
+
+    return "\n".join([f"{aggregate[c]/num_decks:.2f}\t{c}" for c in sorted(core, key=lambda x: aggregate[x], reverse=True)])
+
+
+def recommend_commander_replacements(decklist):
+    pass
+
+def recommend_commander_adds(decklist, commander, n=20):
+    pass
+
+def recommend_commander_cuts(decklist, commander, n=20):
+    flat_dataset = load_commander_decks(commander)
+    #flat_dataset = load_normalized()
+    all_cards, num_decks = dataset_summary(flat_dataset)
+    df = create_dataframe(flat_dataset, all_cards)
+    decklist_vec = deck2vec(df, decklist)
+
+    master = {}
+    for deck in flat_dataset:
+        cur_filtered = filter(lambda x: x in decklist.values(), flat_dataset[deck])
+        cur_score = similarity(df, decklist_vec, deck)
+
+        for card in cur_filtered:
+            if card not in master:
+                master[card] = []
+            #TODO: Looks like these cards should be normalized?
+            master[card].append(cur_score)
+
+    def measure(x):
+        if x not in master:
+            return 0
+        return np.power(np.prod(master[x]), 1 / len(master[x]))
+
+    output = ""
+
+    for i, card in enumerate(sorted(decklist, key=measure)):
+        numbering = f"{i+1}.".ljust(4, " ")
+        card_name = f"{decklist[card]}".ljust(40, " ")
+
+        output += (
+            f"{numbering}{card_name} "
+            f"(DS: {measure(card):.3f})\n"
+        )
+
+    return output
 
 if __name__ == "__main__":
 
@@ -780,7 +885,7 @@ if __name__ == "__main__":
 
     def miv(x): return max_inclusion_value(x, ddb_color_rep, scry)
 
-    """"""
+    """
     for card in sorted(
         filter(
             lambda x: (
@@ -802,7 +907,7 @@ if __name__ == "__main__":
         #val = round(100 * all_cards[card] / miv(card), 2)
         #print(f"{val} %\t ({all_cards[card]} / {miv(card)}) {card}")
         print(f"({all_cards[card]} / {num_decks}) {card}")
-    """"""
+    """
     ##############################################
     """
     Check for decks that don't play a specific card.
@@ -839,9 +944,26 @@ if __name__ == "__main__":
 
     #nonland_synergy("underworld breach")
 
-    print()
+
     #create_core(["R", "U", "g"])
-    bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
+    #bla = create_core(["W", "U", "B", "R", "G"], ratio=0.8)
     #bla = create_core(["W", "U", "B", "R"], ratio=0.41)
 
-    print(bla)
+    #data = create_commander_core("Kraum, Ludevic's Opus / Tymna the Weaver", ratio=0.75, n=100)
+    #data = create_commander_core("Tivit, Seller of Secrets", ratio=0.75)
+    #print(data)
+
+    #read decklist from decklist.txt file
+    with open("decklist.txt", "r") as f:
+        decklist = f.read()
+
+    clean_decklist = {}
+
+    for card in decklist.split("\n"):
+        if card:
+            clean_card = " ".join(card.split()[1:])
+            clean_decklist[normalize(clean_card)] = clean_card
+
+    recommend_commander_cuts(clean_decklist, "Tivit, Seller of Secrets", n=20)
+
+
